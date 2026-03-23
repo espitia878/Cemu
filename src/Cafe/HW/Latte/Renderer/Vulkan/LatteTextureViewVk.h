@@ -3,11 +3,12 @@
 #include "Cafe/HW/Latte/Core/LatteTexture.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VKRBase.h"
+#include <vector>
+#include <algorithm>
 
 class LatteTextureViewVk : public LatteTextureView
 {
 public:
-	// Constructor actualizado con uint32 para coincidir con el .cpp
 	LatteTextureViewVk(VkDevice device, class LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 firstMip, uint32 mipCount, uint32 firstSlice, uint32 sliceCount);
 	~LatteTextureViewVk();
 
@@ -19,8 +20,8 @@ public:
 
 	class LatteTextureVk* GetBaseImage() const { return (class LatteTextureVk*)baseTexture; }
 	
-	void AddDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo) { if (std::find(list_descriptorSets.begin(), list_descriptorSets.end(), dsInfo) == list_descriptorSets.end()) list_descriptorSets.emplace_back(dsInfo); };
-	void RemoveDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo) { list_descriptorSets.erase(std::remove(list_descriptorSets.begin(), list_descriptorSets.end(), dsInfo), list_descriptorSets.end()); };
+	void AddDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo);
+	void RemoveDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo);
 
 private:
 	VkImageViewType GetImageViewTypeFromGX2Dim(Latte::E_DIM dim);
@@ -34,13 +35,11 @@ private:
 	VKRObjectTextureView* m_smallCacheView1 = {};
 	std::unordered_map<uint32, VKRObjectTextureView*>* m_fallbackCache{};
 	
+	// VARIABLES CRÍTICAS CORREGIDAS
 	VkDevice m_device;
 	VkFormat m_format;
-	
-	// Esta es la variable que el .cpp necesita encontrar
 	VkImageView m_view = VK_NULL_HANDLE; 
 
 	std::vector<struct VkDescriptorSetInfo*> list_descriptorSets; 
-
 	uint64 m_uniqueId;
 };
