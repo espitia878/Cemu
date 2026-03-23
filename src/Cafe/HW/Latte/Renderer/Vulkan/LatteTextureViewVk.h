@@ -10,7 +10,7 @@
 class LatteTextureViewVk : public LatteTextureView
 {
 public:
-	// Constructor sincronizado con el .cpp (usando uint32)
+	// Constructor sincronizado (uint32)
 	LatteTextureViewVk(VkDevice device, class LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 firstMip, uint32 mipCount, uint32 firstSlice, uint32 sliceCount);
 	~LatteTextureViewVk();
 
@@ -37,7 +37,7 @@ private:
 	VKRObjectTextureView* m_smallCacheView1 = {};
 	std::unordered_map<uint32, VKRObjectTextureView*>* m_fallbackCache{};
 	
-	// Estas variables ahora son visibles para el archivo .cpp
+	// Variables de estado
 	VkDevice m_device;
 	VkFormat m_format;
 	VkImageView m_view = VK_NULL_HANDLE; 
