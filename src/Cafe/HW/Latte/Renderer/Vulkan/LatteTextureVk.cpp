@@ -27,8 +27,16 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	imageInfo.extent.height = effectiveBaseHeight;
 	imageInfo.mipLevels = mipLevels;
 	
-	// FIX IMMORTALIS: Añadido INPUT_ATTACHMENT para visibilidad en MediaTek Dimensity 9300+
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+	// --- SOLUCIÓN DEFINITIVA PARA MALI IMMORTALIS ---
+	// Usos básicos seguros para cualquier formato (Sampleado y Transferencia)
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+	// Solo añadimos INPUT_ATTACHMENT y STORAGE si NO es formato comprimido (ASTC)
+	// Esto elimina el error 0xb00 que vimos en tu Logcat
+	if (!Latte::IsCompressedFormat(format))
+	{
+		imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+	}
 	
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -55,14 +63,20 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	if (isDepth == false && texFormatInfo.isCompressed)
 	{
 		imageInfo.flags |= VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
-		// FIX MALI: Forzar Extended Usage para evitar el descarte de las skins de zombies
+		// EXTENDED_USAGE permite que el driver sea flexible con las texturas de zombies
 		imageInfo.flags |= VK_IMAGE_CREATE_EXTENDED_USAGE_BIT;
 	}
     
 	if (isDepth == false)
 	{
 		imageInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
-		imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		
+		// CRÍTICO: No añadimos COLOR_ATTACHMENT a texturas comprimidas
+		// Esto elimina el error 0x300 que bloqueaba el juego
+		if (!Latte::IsCompressedFormat(format))
+		{
+			imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		}
 	}
 
 	if (isDepth)
@@ -71,12 +85,12 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	}
 	else
 	{
+		// Doble verificación de seguridad para formatos de color
 		if(Latte::IsCompressedFormat(format) == false && texFormatInfo.vkImageFormat != VK_FORMAT_R4G4_UNORM_PACK8) 
 			imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	}
 
-	// Lógica de tipo de imagen simplificada para evitar errores de compilación
-	imageInfo.imageType = VK_IMAGE_TYPE_2D; // Default
+	imageInfo.imageType = VK_IMAGE_TYPE_2D; 
 	if (dim == Latte::E_DIM::DIM_1D)
 		imageInfo.imageType = VK_IMAGE_TYPE_1D;
 	else if (dim == Latte::E_DIM::DIM_3D)
