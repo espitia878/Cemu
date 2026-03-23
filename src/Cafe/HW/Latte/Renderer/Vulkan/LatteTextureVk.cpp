@@ -27,8 +27,8 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	imageInfo.extent.height = effectiveBaseHeight;
 	imageInfo.mipLevels = mipLevels;
 	
-	// PARCHE MALI: Añadido STORAGE_BIT para forzar visibilidad de texturas en MediaTek
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+	// FIX IMMORTALIS: Añadido INPUT_ATTACHMENT y STORAGE para asegurar visibilidad en MediaTek Dimensity
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 	
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -56,11 +56,12 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	if (isDepth == false && texFormatInfo.isCompressed)
 	{
 		imageInfo.flags |= VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
+		// FIX MALI: Forzar Extended Usage para evitar descarte de texturas comprimidas (Skins)
+		imageInfo.flags |= VK_IMAGE_CREATE_EXTENDED_USAGE_BIT;
 	}
 	if (isDepth == false)
 	{
 		imageInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
-		// PARCHE MALI: Forzar color attachment para skins de personajes
 		imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	}
 
@@ -84,58 +85,5 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
 	else if (dim == Latte::E_DIM::DIM_CUBEMAP)
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	else if (dim == Latte::E_DIM::DIM_2D_MSAA)
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	else
-	{
-		cemu_assert_unimplemented();
-	}
-
-	if (vkCreateImage(m_vkr->GetLogicalDevice(), &imageInfo, nullptr, &vkObjTex->m_image) != VK_SUCCESS)
-		m_vkr->UnrecoverableError("Failed to create texture image");
-	
-	if (m_vkr->IsDebugMarkersEnabled())
-	{
-		VkDebugUtilsObjectNameInfoEXT objName{};
-		objName.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-		objName.objectType = VK_OBJECT_TYPE_IMAGE;
-		objName.pNext = nullptr;
-		objName.objectHandle = (uint64_t)vkObjTex->m_image;
-		auto objNameStr = fmt::format("tex_{:08x}_fmt{:04x}", physAddress, (uint32)format);
-		objName.pObjectName = objNameStr.c_str();
-		vkSetDebugUtilsObjectNameEXT(m_vkr->GetLogicalDevice(), &objName);
-	}
-
-	vkObjTex->m_flags = imageInfo.flags;
-	vkObjTex->m_format = imageInfo.format;
-
-	m_layoutsMips = std::max(mipLevels, 1u); 
-	m_layoutsDepth = std::max(depth, 1u);
-	if (Is3DTexture())
-		m_layouts.resize(m_layoutsMips, VK_IMAGE_LAYOUT_UNDEFINED); 
-	else
-		m_layouts.resize(m_layoutsMips * m_layoutsDepth, VK_IMAGE_LAYOUT_UNDEFINED); 
-}
-
-LatteTextureVk::~LatteTextureVk()
-{
-	cemu_assert_debug(views.empty());
-	m_vkr->surfaceCopy_notifyTextureRelease(this);
-	VulkanRenderer::GetInstance()->ReleaseDestructibleObject(vkObjTex);
-	vkObjTex = nullptr;
-}
-
-LatteTextureView* LatteTextureVk::CreateView(Latte::E_DIM dim, Latte::E_GX2SURFFMT format, sint32 firstMip, sint32 mipCount, sint32 firstSlice, sint32 sliceCount)
-{
-	cemu_assert_debug(mipCount > 0);
-	cemu_assert_debug(sliceCount > 0);
-	cemu_assert_debug((firstMip + mipCount) <= this->mipLevels);
-	cemu_assert_debug((firstSlice + sliceCount) <= this->depth);
-	return new LatteTextureViewVk(m_vkr->GetLogicalDevice(), this, dim, format, firstMip, mipCount, firstSlice, sliceCount);
-}
-
-void LatteTextureVk::AllocateOnHost()
-{
-	auto allocationInfo = VulkanRenderer::GetInstance()->GetMemoryManager()->imageMemoryAllocate(GetImageObj()->m_image);
-	vkObjTex->m_allocation = allocationInfo;
-}
+	else if (dim == Latte::E_DIM::DIM_2D_MSAA
+		
