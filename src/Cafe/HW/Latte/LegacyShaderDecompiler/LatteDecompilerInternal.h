@@ -8,8 +8,9 @@
 struct LatteDecompilerShaderContext
 {
 	// --- MODIFICACIÓN PARA XIAOMI 14T PRO ---
-	// La movemos aquí para que no interfiera con los constructores automáticos
-	bool m_is_vulkan_android = false; 
+	// Usamos 'static' para que no afecte al tamaño de la estructura
+	// y así ShaderSerializer.cpp no note ningún cambio.
+	static inline bool m_is_vulkan_android = false; 
 	// ---------------------------------------
 
 	struct LatteDecompilerOutput_t* output;
