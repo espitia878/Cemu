@@ -4,11 +4,13 @@
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VKRBase.h"
 #include <vector>
+#include <unordered_map>
 #include <algorithm>
 
 class LatteTextureViewVk : public LatteTextureView
 {
 public:
+	// Constructor sincronizado con el .cpp (usando uint32)
 	LatteTextureViewVk(VkDevice device, class LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 firstMip, uint32 mipCount, uint32 firstSlice, uint32 sliceCount);
 	~LatteTextureViewVk();
 
@@ -35,11 +37,11 @@ private:
 	VKRObjectTextureView* m_smallCacheView1 = {};
 	std::unordered_map<uint32, VKRObjectTextureView*>* m_fallbackCache{};
 	
-	// VARIABLES CRÍTICAS CORREGIDAS
+	// Estas variables ahora son visibles para el archivo .cpp
 	VkDevice m_device;
 	VkFormat m_format;
 	VkImageView m_view = VK_NULL_HANDLE; 
+	uint64 m_uniqueId = 0;
 
 	std::vector<struct VkDescriptorSetInfo*> list_descriptorSets; 
-	uint64 m_uniqueId;
 };
