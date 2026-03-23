@@ -20,7 +20,7 @@ LatteTextureVk::LatteTextureVk(VulkanRenderer* vkRenderer, Latte::E_DIM dim, MPT
 	imageInfo.mipLevels = mipLevels;
 	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-	// PARCHE ZOMBIES (Mali Immortalis)
+	// PARCHE ZOMBIES (Mali Immortalis - Dimensity 9300+)
 	bool isForbidden = (format == (Latte::E_GX2SURFFMT)0x3b || format == (Latte::E_GX2SURFFMT)0x38);
 	if (!isForbidden) imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 	
@@ -51,22 +51,4 @@ LatteTextureVk::LatteTextureVk(VulkanRenderer* vkRenderer, Latte::E_DIM dim, MPT
 	imageInfo.imageType = (dim == Latte::E_DIM::DIM_1D) ? VK_IMAGE_TYPE_1D : ((dim == Latte::E_DIM::DIM_3D) ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D);
 
 	if (vkCreateImage(m_vkr->GetLogicalDevice(), &imageInfo, nullptr, &vkObjTex->m_image) != VK_SUCCESS)
-		m_vkr->UnrecoverableError("Failed to create image");
-	
-	vkObjTex->m_flags = imageInfo.flags;
-	vkObjTex->m_format = imageInfo.format;
-
-	m_layoutsMips = (mipLevels > 1) ? mipLevels : 1;
-	m_layoutsDepth = (effDepth > 1) ? effDepth : 1;
-	m_layouts.resize(m_layoutsMips * m_layoutsDepth, VK_IMAGE_LAYOUT_UNDEFINED);
-}
-
-LatteTextureVk::~LatteTextureVk() {
-	if (vkObjTex) delete vkObjTex;
-}
-
-void LatteTextureVk::AllocateOnHost() { }
-
-LatteTextureView* LatteTextureVk::CreateView(Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 firstMip, uint32 mipCount, int32 firstSlice, int32 sliceCount) {
-    return new LatteTextureViewVk(m_vkr->GetLogicalDevice(), this, dim, format, (uint32)firstMip, (uint32)mipCount, (int32)firstSlice, (int32)sliceCount);
-}
+		
