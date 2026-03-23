@@ -1,7 +1,7 @@
 #include "Cafe/HW/Latte/Core/LatteConst.h"
 #include "Cafe/HW/Latte/Core/LatteShaderAssembly.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
-#include "Cafe/OS/libs/gx2/GX2.h" // todo - remove dependency
+#include "Cafe/OS/libs/gx2/GX2.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/HW/Latte/Core/LatteDraw.h"
 #include "Cafe/HW/Latte/Core/LatteShader.h"
@@ -17,9 +17,9 @@
 #include <boost/container/small_vector.hpp>
 
 #define _CRLF	"\r\n"
+#define m_is_vulkan (shaderContext->m_is_vulkan) // <--- Cambio para Xiaomi 14T Pro
 
 void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContext, StringBuf* src, LatteParsedFetchShaderAttribute_t* attrib);
-
 /*
  * Variable names:
  * R0-R127 temp
