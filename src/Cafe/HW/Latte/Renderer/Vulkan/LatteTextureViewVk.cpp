@@ -24,11 +24,11 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* tex, Lat
 	viewInfo.subresourceRange.aspectMask = tex->vkObjTex->m_imageAspect;
 	viewInfo.subresourceRange.baseMipLevel = firstMip;
 	viewInfo.subresourceRange.levelCount = mipCount;
-	viewInfo.subresourceRange.baseArrayLayer = firstSlice;
-	viewInfo.subresourceRange.layerCount = sliceCount;
+	viewInfo.subresourceRange.baseArrayLayer = (uint32)firstSlice;
+	viewInfo.subresourceRange.layerCount = (uint32)sliceCount;
 
-	if (vkCreateImageView(m_device, &viewInfo, nullptr, &m_view) != VK_SUCCESS) {
-		// Error handling
+	if (vkCreateImageView(m_device, &viewInfo, nullptr, &m_view) != VK_SUCCESS)
+	{
 	}
 }
 
