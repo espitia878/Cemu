@@ -20,7 +20,7 @@ LatteTextureVk::LatteTextureVk(VulkanRenderer* vkRenderer, Latte::E_DIM dim, MPT
 	imageInfo.mipLevels = mipLevels;
 	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-	// Parche Mali Immortalis
+	// PARCHE ZOMBIES (Mali Immortalis)
 	bool isForbidden = (format == (Latte::E_GX2SURFFMT)0x3b || format == (Latte::E_GX2SURFFMT)0x38);
 	if (!isForbidden) imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 	
@@ -68,5 +68,5 @@ LatteTextureVk::~LatteTextureVk() {
 void LatteTextureVk::AllocateOnHost() { }
 
 LatteTextureView* LatteTextureVk::CreateView(Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 baseMip, uint32 mipCount, uint32 firstSlice, uint32 sliceCount) {
-    return new LatteTextureViewVk(m_vkr->GetLogicalDevice(), this, dim, format, (int32)baseMip, (int32)mipCount, (int32)firstSlice, (int32)sliceCount);
+    return new LatteTextureViewVk(m_vkr->GetLogicalDevice(), this, dim, format, (uint32)baseMip, (uint32)mipCount, (uint32)firstSlice, (uint32)sliceCount);
 }
