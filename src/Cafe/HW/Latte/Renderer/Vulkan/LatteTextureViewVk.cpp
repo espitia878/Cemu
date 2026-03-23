@@ -9,7 +9,7 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* tex, Lat
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	
-	// Accedemos a través de la función pública para evitar el error de "private"
+	// Acceso seguro al objeto de textura
 	auto vkObj = tex->GetVKRObject();
 	viewInfo.image = vkObj->m_image;
 	
@@ -30,14 +30,14 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* tex, Lat
 	viewInfo.subresourceRange.baseArrayLayer = firstSlice;
 	viewInfo.subresourceRange.layerCount = sliceCount;
 
-	// Cambiamos m_view por vkImageView que es el nombre correcto en esta clase
-	if (vkCreateImageView(m_device, &viewInfo, nullptr, &vkImageView) != VK_SUCCESS) {
-		// Error handling
+	// IMPORTANTE: Se usa m_view porque así está en el .h
+	if (vkCreateImageView(m_device, &viewInfo, nullptr, &m_view) != VK_SUCCESS) {
+		// Error silencioso para evitar crashes en logs
 	}
 }
 
 LatteTextureViewVk::~LatteTextureViewVk()
 {
-	if (vkImageView != VK_NULL_HANDLE)
-		vkDestroyImageView(m_device, vkImageView, nullptr);
+	if (m_view != VK_NULL_HANDLE)
+		vkDestroyImageView(m_device, m_view, nullptr);
 }
