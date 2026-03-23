@@ -26,7 +26,10 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	imageInfo.extent.width = effectiveBaseWidth;
 	imageInfo.extent.height = effectiveBaseHeight;
 	imageInfo.mipLevels = mipLevels;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	
+	// PARCHE MALI: Añadido STORAGE_BIT para forzar visibilidad de texturas en MediaTek
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+	
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
@@ -55,7 +58,11 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 		imageInfo.flags |= VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
 	}
 	if (isDepth == false)
+	{
 		imageInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+		// PARCHE MALI: Forzar color attachment para skins de personajes
+		imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	}
 
 	if (isDepth)
 	{
@@ -63,7 +70,7 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	}
 	else
 	{
-		if(Latte::IsCompressedFormat(format) == false && texFormatInfo.vkImageFormat != VK_FORMAT_R4G4_UNORM_PACK8) // Vulkan's R4G4 cant be used as a color attachment
+		if(Latte::IsCompressedFormat(format) == false && texFormatInfo.vkImageFormat != VK_FORMAT_R4G4_UNORM_PACK8) 
 			imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	}
 
@@ -102,21 +109,18 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	vkObjTex->m_flags = imageInfo.flags;
 	vkObjTex->m_format = imageInfo.format;
 
-	// init layout array
-	m_layoutsMips = std::max(mipLevels, 1u); // todo - use effective mip count
+	m_layoutsMips = std::max(mipLevels, 1u); 
 	m_layoutsDepth = std::max(depth, 1u);
 	if (Is3DTexture())
-		m_layouts.resize(m_layoutsMips, VK_IMAGE_LAYOUT_UNDEFINED); // one per mip
+		m_layouts.resize(m_layoutsMips, VK_IMAGE_LAYOUT_UNDEFINED); 
 	else
-		m_layouts.resize(m_layoutsMips * m_layoutsDepth, VK_IMAGE_LAYOUT_UNDEFINED); // one per layer per mip
+		m_layouts.resize(m_layoutsMips * m_layoutsDepth, VK_IMAGE_LAYOUT_UNDEFINED); 
 }
 
 LatteTextureVk::~LatteTextureVk()
 {
 	cemu_assert_debug(views.empty());
-
 	m_vkr->surfaceCopy_notifyTextureRelease(this);
-
 	VulkanRenderer::GetInstance()->ReleaseDestructibleObject(vkObjTex);
 	vkObjTex = nullptr;
 }
