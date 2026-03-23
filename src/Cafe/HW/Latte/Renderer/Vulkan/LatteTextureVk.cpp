@@ -3,13 +3,10 @@
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 
-// Constructor corregido para evitar error de vtable
 LatteTextureVk::LatteTextureVk(VulkanRenderer* vkRenderer, Latte::E_DIM dim, MPTR physAddress, MPTR physMipAddress, Latte::E_GX2SURFFMT format, uint32 width, uint32 height, uint32 depth, uint32 pitch, uint32 mipLevels, uint32 swizzle, Latte::E_HWTILEMODE tileMode, bool isDepth)
-	: LatteTexture(dim, physAddress, physMipAddress, format, width, height, depth, pitch, mipLevels, swizzle, tileMode, isDepth)
+	: LatteTexture(dim, physAddress, physMipAddress, format, width, height, depth, pitch, mipLevels, swizzle, tileMode, isDepth), m_vkr(vkRenderer)
 {
-	m_vkr = vkRenderer; // Asignación manual para evitar líos en la lista de inicialización
 	vkObjTex = new VKRObjectTexture();
-
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	
@@ -21,16 +18,10 @@ LatteTextureVk::LatteTextureVk(VulkanRenderer* vkRenderer, Latte::E_DIM dim, MPT
 	imageInfo.extent.width = effWidth;
 	imageInfo.extent.height = effHeight;
 	imageInfo.mipLevels = mipLevels;
-	
-	// --- PARCHE MALI ---
 	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	
-	// Lista negra de formatos para zombies
-	bool isForbidden = (format == (Latte::E_GX2SURFFMT)0x3b || format == (Latte::E_GX2SURFFMT)0x38);
 
-	if (!isForbidden) {
-		imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-	}
+	bool isForbidden = (format == (Latte::E_GX2SURFFMT)0x3b || format == (Latte::E_GX2SURFFMT)0x38);
+	if (!isForbidden) imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 	
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -69,7 +60,15 @@ LatteTextureVk::LatteTextureVk(VulkanRenderer* vkRenderer, Latte::E_DIM dim, MPT
 	m_layouts.resize(m_layoutsMips * m_layoutsDepth, VK_IMAGE_LAYOUT_UNDEFINED);
 }
 
-// Implementación mínima de funciones virtuales para evitar el error de vtable
 LatteTextureVk::~LatteTextureVk() {
-    if (vkObjTex) delete vkObjTex;
+	if (vkObjTex) delete vkObjTex;
+}
+
+// FUNCIONES QUE RECLAMA EL LOG (Línea 2592 y 2596):
+void LatteTextureVk::AllocateOnHost() {
+    // Implementación mínima para que el linker no falle
+}
+
+LatteTextureView* LatteTextureVk::CreateView(Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 baseMip, uint32 mipCount, uint32 baseLayer) {
+    return new LatteTextureViewVk(m_vkr, this, dim, format, baseMip, mipCount, baseLayer);
 }
