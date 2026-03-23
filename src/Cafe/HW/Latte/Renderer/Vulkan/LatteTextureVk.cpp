@@ -21,16 +21,17 @@ LatteTextureVk::LatteTextureVk(VulkanRenderer* vkRenderer, Latte::E_DIM dim, MPT
 		effectiveBaseHeight = overwriteInfo.height;
 		effectiveBaseDepth = overwriteInfo.depth;
 	}
-	effectiveBaseDepth = std::max(1, (sint32)effectiveBaseDepth);
+	effectiveBaseDepth = (effectiveBaseDepth > 1) ? effectiveBaseDepth : 1;
 
 	imageInfo.extent.width = (uint32)effectiveBaseWidth;
 	imageInfo.extent.height = (uint32)effectiveBaseHeight;
 	imageInfo.mipLevels = mipLevels;
 	
 	// --- MALI IMMORTALIS STABILITY PATCH ---
-	// Initialize with safe read-only bits for formats 0x3b/0x38
+	// Iniciamos con bits de solo lectura para estabilidad en formatos 0x3b/0x38
 	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
+	// Lista negra para formatos detectados en Logcat (Zombies/Mali Error)
 	bool isMaliProhibited = (format == (Latte::E_GX2SURFFMT)0x3b || format == (Latte::E_GX2SURFFMT)0x38 || Latte::IsCompressedFormat(format));
 
 	if (!isMaliProhibited)
@@ -94,5 +95,16 @@ LatteTextureVk::LatteTextureVk(VulkanRenderer* vkRenderer, Latte::E_DIM dim, MPT
 	vkObjTex->m_flags = imageInfo.flags;
 	vkObjTex->m_format = imageInfo.format;
 
-	m_layoutsMips = std
-		
+	// Correcion final para linea 97 (evita errores de std namespace)
+	m_layoutsMips = (mipLevels > 1u) ? mipLevels : 1u; 
+	m_layoutsDepth = (depth > 1u) ? depth : 1u;
+	
+	if (Is3DTexture())
+	{
+		m_layouts.resize(m_layoutsMips, VK_IMAGE_LAYOUT_UNDEFINED); 
+	}
+	else
+	{
+		m_layouts.resize(m_layoutsMips * m_layoutsDepth, VK_IMAGE_LAYOUT_UNDEFINED); 
+	}
+}
