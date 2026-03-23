@@ -159,9 +159,6 @@ struct LatteDecompilerBufferAccessTracker
 
 	sint32 DetermineSize(uint64 shaderBaseHash, sint32 maximumSize) const
 	{
-		// here we try to predict the accessed byte range so we dont have to upload the whole buffer
-		// if no bound can be determined then return maximumSize
-		// for some known shaders we use hand-tuned values instead of the maximumSize fallback value that those shaders would normally use
 		if(shaderBaseHash == 0x8ff56afdf1a2f837) // XCX text rendering
 			return 24;
 		if(shaderBaseHash == 0x37b9100c1310d3bb) // BotW UI backdrops 1
@@ -173,9 +170,9 @@ struct LatteDecompilerBufferAccessTracker
 		if(hasStaticIndexAccess)
 			highestAccessIndex = highestAccessStaticIndex;
 		if(hasDynamicIndexAccess)
-			return maximumSize; // dynamic index exists and no bound can be determined
+			return maximumSize; 
 		if (highestAccessIndex < 0)
-			return 1; // no access at all? But avoid zero as a size
+			return 1; 
 		return highestAccessIndex + 1;
 	}
 
@@ -201,70 +198,53 @@ struct LatteDecompilerShaderContext
 	uint64 shaderBaseHash;
 	StringBuf* shaderSource;
 	std::vector<LatteDecompilerCFInstruction> cfInstructions;
-	// fetch shader (required for vertex shader)
 	LatteFetchShader* fetchShader{};
-	// geometry copy shader (only present when geometry shader is active)
 	LatteParsedGSCopyShader* parsedGSCopyShader;
-	// state
 	bool hasError;
-	// type tracker
 	struct
 	{
-		// data type tracker
 		uint8 defaultDataType;
-		bool genFloatReg; // if set, generate R*f register variables
-		bool genIntReg; // if set, generate R*i register variables
-		bool useArrayGPRs; // if set, an array is used to represent GPRs instead of individual variables
+		bool genFloatReg; 
+		bool genIntReg; 
+		bool useArrayGPRs; 
 	}typeTracker;
-	// analyzer
 	struct
 	{
-		// general
-		bool hasStreamoutEnable{}; // set if streamout is enabled
-		bool hasLoops{}; // loop directives present in shader
-		// vertex shader
-		bool isPointsPrimitive{}; // set if current render primitive is points
-		bool outputPointSize{}; // set if the current shader should output the point size
-		std::bitset<256> inputAttributSemanticMask; // one set bit for every used semanticId - todo: there are only 128 bit available semantic locations? The MSB has special meaning?
-		// uniforms
+		bool hasStreamoutEnable{}; 
+		bool hasLoops{}; 
+		bool isPointsPrimitive{}; 
+		bool outputPointSize{}; 
+		std::bitset<256> inputAttributSemanticMask; 
 		LatteDecompilerBufferAccessTracker uniformRegisterAccessTracker;
 		LatteDecompilerBufferAccessTracker uniformBufferAccessTracker[LATTE_NUM_MAX_UNIFORM_BUFFERS];
-		// ssbo
-		bool hasSSBORead; // shader has instructions that read from SSBO
-		bool hasSSBOWrite; // shader has instructions that write to SSBO
-		// textures
+		bool hasSSBORead; 
+		bool hasSSBOWrite; 
 		std::bitset<LATTE_NUM_MAX_TEX_UNITS> texUnitUsesTexelCoordinates;
-		bool hasCubeMapTexture; // set to true if a cubemap texture is used
-		bool hasGradientLookup; // set to true if texture lookup with custom gradients is used
-		// misc
-		bool usesRelativeGPRRead; // set if indexed GPR reads are used
-		bool usesRelativeGPRWrite; // set if indexed GPR writes are used
-		uint8 gprUseMask[(LATTE_NUM_GPR + 7) / 8]; // 1 bit per GPR, set if GPR is read/written anywhere in the program (ignores GPR accesses with relative index)
-		bool hasStreamoutWrite; // stream-out CF instructions are used
-		bool hasRedcCUBE; // has cube reduction instruction
-		bool modifiesPixelActiveState; // set if the active mask is changed anywhere in the shader (If false, we can skip active mask checks)
-		bool usesIntegerValues; // set if the shader uses any kind of integer instruction or integer-based GPR/AR access
-		sint32 activeStackMaxDepth; // maximum depth of pixel state stack
-		// analyzer stage (vs)
+		bool hasCubeMapTexture; 
+		bool hasGradientLookup; 
+		bool usesRelativeGPRRead; 
+		bool usesRelativeGPRWrite; 
+		uint8 gprUseMask[(LATTE_NUM_GPR + 7) / 8]; 
+		bool hasStreamoutWrite; 
+		bool hasRedcCUBE; 
+		bool modifiesPixelActiveState; 
+		bool usesIntegerValues; 
+		sint32 activeStackMaxDepth; 
 		bool writesPointSize{};
-		// streamout (vs and gs)
 		bool useSSBOForStreamout{};
-		// geometry shader
-		uint32 numEmitVertex{}; // counts how often emit vertex instruction is found
+		uint32 numEmitVertex{}; 
 	}analyzer;
 
-	// set while generating code for subroutine
 	bool isSubroutine;
 	LatteDecompilerSubroutineInfo* subroutineInfo;
 
-	// emitter
 	bool hasUniformVarBlock;
 	sint32 currentBindingPointVK{};
 	sint32 currentBufferBindingPointMTL{};
 	sint32 currentTextureBindingPointMTL{};
 	struct ALUClauseTemporariesState* aluPVPSState{nullptr};
-	// misc
 	std::vector<LatteDecompilerSubroutineInfo> list_subroutines;
+	bool m_is_vulkan; // <--- Cambio para Xiaomi 14T Pro
 };
 
 void LatteDecompiler_analyze(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
@@ -273,7 +253,5 @@ void LatteDecompiler_emitGLSLShader(LatteDecompilerShaderContext* shaderContext,
 void LatteDecompiler_emitMSLShader(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
 
 void LatteDecompiler_cleanup(LatteDecompilerShaderContext* shaderContext);
-
-// helper functions
 
 sint32 LatteDecompiler_getColorOutputIndexFromExportIndex(LatteDecompilerShaderContext* shaderContext, sint32 exportIndex);
