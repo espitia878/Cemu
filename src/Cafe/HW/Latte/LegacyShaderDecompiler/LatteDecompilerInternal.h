@@ -10,11 +10,8 @@ struct LatteDecompilerShaderContext
 	// --- MODIFICACIÓN PARA XIAOMI 14T PRO ---
 	bool m_is_vulkan_android{false}; 
 
-	// Definiciones de compatibilidad para el compilador
+	// Usamos inicialización simple para evitar conflictos con el serializador
 	LatteDecompilerShaderContext() = default;
-	~LatteDecompilerShaderContext() = default; // Destructor por defecto
-	LatteDecompilerShaderContext(const LatteDecompilerShaderContext&) = default; // Copia
-	LatteDecompilerShaderContext& operator=(const LatteDecompilerShaderContext&) = default;
 	// ----------------------------------------
 
 	struct LatteDecompilerOutput_t* output;
@@ -83,5 +80,8 @@ struct LatteDecompilerShaderContext
 	struct ALUClauseTemporariesState* aluPVPSState{nullptr};
 	std::vector<struct LatteDecompilerSubroutineInfo> list_subroutines;
 };
+
+// IMPORTANTE: He eliminado el destructor manual (~LatteDecompilerShaderContext) 
+// para que no choque con las definiciones de abajo. C++ lo creará solo.
 
 void LatteDecompiler_analyze(LatteDecompilerShaderContext* shaderContext, struct LatteDecompilerShader* shader);
