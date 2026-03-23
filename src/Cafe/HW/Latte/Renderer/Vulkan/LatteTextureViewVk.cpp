@@ -7,10 +7,10 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* tex, Lat
 	: LatteTextureView(tex, dim, format, firstMip, mipCount, firstSlice, sliceCount)
 	, m_device(device)
 {
-	// Inicializamos las variables que faltaban
-	auto vkObj = tex->GetVKRObject();
+	// Usamos GetImageObj() que confirmamos en LatteTextureVk.h
+	auto vkObj = tex->GetImageObj();
 	m_format = vkObj->m_format;
-	m_uniqueId = 0; // O la lógica de ID que use tu rama
+	m_uniqueId = 0; 
 
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -43,10 +43,12 @@ LatteTextureViewVk::~LatteTextureViewVk()
 }
 
 void LatteTextureViewVk::AddDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo) {
-    if (std::find(list_descriptorSets.begin(), list_descriptorSets.end(), dsInfo) == list_descriptorSets.end()) 
-        list_descriptorSets.emplace_back(dsInfo);
+	if (std::find(list_descriptorSets.begin(), list_descriptorSets.end(), dsInfo) == list_descriptorSets.end()) 
+		list_descriptorSets.emplace_back(dsInfo);
 }
 
 void LatteTextureViewVk::RemoveDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo) {
-    list_descriptorSets.erase(std::remove(list_descriptorSets.begin(), list_descriptorSets.end(), dsInfo), list_descriptorSets.end());
+	auto it = std::find(list_descriptorSets.begin(), list_descriptorSets.end(), dsInfo);
+	if (it != list_descriptorSets.end())
+		list_descriptorSets.erase(it);
 }
