@@ -67,6 +67,7 @@ LatteTextureVk::~LatteTextureVk() {
 
 void LatteTextureVk::AllocateOnHost() { }
 
-LatteTextureView* LatteTextureVk::CreateView(Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 baseMip, uint32 mipCount, uint32 firstSlice, uint32 sliceCount) {
-    return new LatteTextureViewVk(m_vkr->GetLogicalDevice(), this, dim, format, (uint32)baseMip, (uint32)mipCount, (uint32)firstSlice, (uint32)sliceCount);
+// VERSIÓN SIMPLIFICADA PARA EVITAR EL ERROR DE DECLARACIÓN:
+LatteTextureView* LatteTextureVk::CreateView(Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 baseMip, uint32 mipCount, uint32 baseLayer) {
+    return new LatteTextureViewVk(m_vkr->GetLogicalDevice(), this, dim, format, (uint32)baseMip, (uint32)mipCount, (uint32)baseLayer, 1);
 }
