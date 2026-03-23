@@ -17,9 +17,13 @@
 #include <boost/container/small_vector.hpp>
 
 #define _CRLF	"\r\n"
-#define m_is_vulkan (shaderContext->m_is_vulkan_android) // <--- Cambio para Xiaomi 14T Pro
 
-void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContext, StringBuf* src, LatteParsedFetchShaderAttribute_t* attrib);
+// --- PUENTE PARA XIAOMI 14T PRO ---
+#define m_is_vulkan (shaderContext->m_is_vulkan_android)
+// ----------------------------------
+
+void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShaderContext* shaderContext, StringBuf* src, LatteParsedFetchShaderAttribute_t* attrib);
+
 /*
  * Variable names:
  * R0-R127 temp
