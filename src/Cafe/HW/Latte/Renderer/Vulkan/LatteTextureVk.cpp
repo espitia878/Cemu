@@ -27,13 +27,15 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	imageInfo.extent.height = effectiveBaseHeight;
 	imageInfo.mipLevels = mipLevels;
 	
-	// --- SOLUCIÓN DEFINITIVA PARA MALI IMMORTALIS ---
-	// Usos básicos seguros para cualquier formato (Sampleado y Transferencia)
+	// --- MALI IMMORTALIS STABILITY PATCH (DIMENSITY 9300+) ---
+	// Initialize with safe read-only bits to prevent 0xb00/0x300 errors
 	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-	// Solo añadimos INPUT_ATTACHMENT y STORAGE si NO es formato comprimido (ASTC)
-	// Esto elimina el error 0xb00 que vimos en tu Logcat
-	if (!Latte::IsCompressedFormat(format))
+	// Explicit blacklist based on Logcat report (Formats 0x3b and 0x38)
+	bool isMaliProhibited = (format == (Latte::E_GX2SURFFMT)0x3b || format == (Latte::E_GX2SURFFMT)0x38 || Latte::IsCompressedFormat(format));
+
+	// Only enable Storage and Input if NOT a driver-prohibited format
+	if (!isMaliProhibited)
 	{
 		imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 	}
@@ -63,7 +65,6 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	if (isDepth == false && texFormatInfo.isCompressed)
 	{
 		imageInfo.flags |= VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
-		// EXTENDED_USAGE permite que el driver sea flexible con las texturas de zombies
 		imageInfo.flags |= VK_IMAGE_CREATE_EXTENDED_USAGE_BIT;
 	}
     
@@ -71,9 +72,8 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	{
 		imageInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
 		
-		// CRÍTICO: No añadimos COLOR_ATTACHMENT a texturas comprimidas
-		// Esto elimina el error 0x300 que bloqueaba el juego
-		if (!Latte::IsCompressedFormat(format))
+		// Color Attachment block for ASTC texture formats (Zombies)
+		if (!isMaliProhibited)
 		{
 			imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		}
@@ -85,8 +85,8 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	}
 	else
 	{
-		// Doble verificación de seguridad para formatos de color
-		if(Latte::IsCompressedFormat(format) == false && texFormatInfo.vkImageFormat != VK_FORMAT_R4G4_UNORM_PACK8) 
+		// Double validation: do not allow Color Attachment if format is blacklisted
+		if(!isMaliProhibited && texFormatInfo.vkImageFormat != VK_FORMAT_R4G4_UNORM_PACK8) 
 			imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	}
 
@@ -120,27 +120,4 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 		m_layouts.resize(m_layoutsMips, VK_IMAGE_LAYOUT_UNDEFINED); 
 	else
 		m_layouts.resize(m_layoutsMips * m_layoutsDepth, VK_IMAGE_LAYOUT_UNDEFINED); 
-}
-
-LatteTextureVk::~LatteTextureVk()
-{
-	cemu_assert_debug(views.empty());
-	m_vkr->surfaceCopy_notifyTextureRelease(this);
-	VulkanRenderer::GetInstance()->ReleaseDestructibleObject(vkObjTex);
-	vkObjTex = nullptr;
-}
-
-LatteTextureView* LatteTextureVk::CreateView(Latte::E_DIM dim, Latte::E_GX2SURFFMT format, sint32 firstMip, sint32 mipCount, sint32 firstSlice, sint32 sliceCount)
-{
-	cemu_assert_debug(mipCount > 0);
-	cemu_assert_debug(sliceCount > 0);
-	cemu_assert_debug((firstMip + mipCount) <= this->mipLevels);
-	cemu_assert_debug((firstSlice + sliceCount) <= this->depth);
-	return new LatteTextureViewVk(m_vkr->GetLogicalDevice(), this, dim, format, firstMip, mipCount, firstSlice, sliceCount);
-}
-
-void LatteTextureVk::AllocateOnHost()
-{
-	auto allocationInfo = VulkanRenderer::GetInstance()->GetMemoryManager()->imageMemoryAllocate(GetImageObj()->m_image);
-	vkObjTex->m_allocation = allocationInfo;
 }
