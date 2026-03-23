@@ -1,13 +1,13 @@
 name: Build Cemu
 
 on:
+  workflow_dispatch:  # Esto activará el botón azul "Run workflow"
   workflow_call:
     inputs:
       next_version_major:
         required: false
-        type: string
-      next_version_minor:
-        required: false
+...
+
         type: string
 
 env:
