@@ -2,6 +2,10 @@
 #include "Cafe/HW/Latte/Core/LatteConst.h"
 #include "Cafe/HW/Latte/Renderer/RendererShader.h"
 #include <boost/container/static_vector.hpp>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <bitset>
 
 namespace LatteDecompiler
 {
@@ -11,6 +15,22 @@ namespace LatteDecompiler
 		U32 = 0,
 		S32 = 0,
 		FLOAT = 0
+	};
+
+	// Clase base necesaria para corregir el error m_is_vulkan
+	class LatteDecompiler
+	{
+	public:
+		LatteDecompiler() = default;
+		virtual ~LatteDecompiler() = default;
+
+		void SetIsVulkan(bool isVulkan) { m_is_vulkan = isVulkan; }
+		bool IsVulkan() const { return m_is_vulkan; }
+
+		virtual std::string Decompile(const std::vector<uint32_t>& shaderBinary) = 0;
+
+	protected:
+		bool m_is_vulkan = false;
 	};
 };
 
