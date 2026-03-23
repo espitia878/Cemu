@@ -7,15 +7,19 @@
 
 struct LatteDecompilerShaderContext
 {
-	// --- MODIFICACIÓN PARA XIAOMI 14T PRO (INICIO) ---
+	// --- CAMBIO PARA COMPATIBILIDAD TOTAL ---
 	bool m_is_vulkan_android{false}; 
-	// --- MODIFICACIÓN PARA XIAOMI 14T PRO (FIN) ---
+
+	// Añadimos un "Constructor por defecto" manual. 
+	// Esto hace que archivos como ShaderSerializer.cpp dejen de dar error.
+	LatteDecompilerShaderContext() = default;
+	// ----------------------------------------
 
 	struct LatteDecompilerOutput_t* output;
 	struct LatteDecompilerShader* shader;
 	LatteConst::ShaderType shaderType;
 	const class LatteDecompilerOptions* options;
-	uint32* contextRegisters; // deprecated
+	uint32* contextRegisters; 
 	struct LatteContextRegister* contextRegistersNew;
 	uint64 shaderBaseHash;
 	class StringBuf* shaderSource;
