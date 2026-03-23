@@ -1,14 +1,19 @@
 name: Build Cemu
 
 on:
-  workflow_dispatch:  # Esto activará el botón azul "Run workflow"
-  workflow_call:
+  workflow_dispatch:
     inputs:
       next_version_major:
+        description: 'Versión Mayor (ej: 2)'
         required: false
-...
-
-        type: string
+        default: '2'
+      next_version_minor:
+        description: 'Versión Menor (ej: 0)'
+        required: false
+        default: '0'
+  push:
+    branches:
+      - android-port
 
 env:
   VCPKG_ROOT: "${{github.workspace}}/dependencies/vcpkg"
