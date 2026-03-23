@@ -244,7 +244,7 @@ struct LatteDecompilerShaderContext
 	sint32 currentTextureBindingPointMTL{};
 	struct ALUClauseTemporariesState* aluPVPSState{nullptr};
 	std::vector<LatteDecompilerSubroutineInfo> list_subroutines;
-	bool m_is_vulkan_android; // <--- Cambio para Xiaomi 14T Pro
+	bool m_is_vulkan_android{false}; // <--- Cambio para Xiaomi 14T Pro
 };
 
 void LatteDecompiler_analyze(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
