@@ -8,7 +8,10 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* tex, Lat
 {
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = tex->vkObjTex->m_image;
+	
+	// Accedemos a través de la función pública para evitar el error de "private"
+	auto vkObj = tex->GetVKRObject();
+	viewInfo.image = vkObj->m_image;
 	
 	switch (dim)
 	{
@@ -20,20 +23,21 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* tex, Lat
 	default: viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; break;
 	}
 
-	viewInfo.format = tex->vkObjTex->m_format;
-	viewInfo.subresourceRange.aspectMask = tex->vkObjTex->m_imageAspect;
+	viewInfo.format = vkObj->m_format;
+	viewInfo.subresourceRange.aspectMask = vkObj->m_imageAspect;
 	viewInfo.subresourceRange.baseMipLevel = firstMip;
 	viewInfo.subresourceRange.levelCount = mipCount;
-	viewInfo.subresourceRange.baseArrayLayer = (uint32)firstSlice;
-	viewInfo.subresourceRange.layerCount = (uint32)sliceCount;
+	viewInfo.subresourceRange.baseArrayLayer = firstSlice;
+	viewInfo.subresourceRange.layerCount = sliceCount;
 
-	if (vkCreateImageView(m_device, &viewInfo, nullptr, &m_view) != VK_SUCCESS)
-	{
+	// Cambiamos m_view por vkImageView que es el nombre correcto en esta clase
+	if (vkCreateImageView(m_device, &viewInfo, nullptr, &vkImageView) != VK_SUCCESS) {
+		// Error handling
 	}
 }
 
 LatteTextureViewVk::~LatteTextureViewVk()
 {
-	if (m_view != VK_NULL_HANDLE)
-		vkDestroyImageView(m_device, m_view, nullptr);
+	if (vkImageView != VK_NULL_HANDLE)
+		vkDestroyImageView(m_device, vkImageView, nullptr);
 }
