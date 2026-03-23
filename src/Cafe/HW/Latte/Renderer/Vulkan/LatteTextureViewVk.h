@@ -7,7 +7,8 @@
 class LatteTextureViewVk : public LatteTextureView
 {
 public:
-	LatteTextureViewVk(VkDevice device, class LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, sint32 firstMip, sint32 mipCount, sint32 firstSlice, sint32 sliceCount);
+	// Constructor actualizado con uint32 para coincidir con el .cpp
+	LatteTextureViewVk(VkDevice device, class LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, uint32 firstMip, uint32 mipCount, uint32 firstSlice, uint32 sliceCount);
 	~LatteTextureViewVk();
 
 	uint64 GetUniqueId() const { return m_uniqueId; };
@@ -16,7 +17,7 @@ public:
 	VkSampler GetDefaultTextureSampler(bool useLinearTexFilter);
 	VkFormat GetFormat() const { return m_format; }
 
-	LatteTextureVk* GetBaseImage() const { return (LatteTextureVk*)baseTexture; }
+	class LatteTextureVk* GetBaseImage() const { return (class LatteTextureVk*)baseTexture; }
 	
 	void AddDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo) { if (std::find(list_descriptorSets.begin(), list_descriptorSets.end(), dsInfo) == list_descriptorSets.end()) list_descriptorSets.emplace_back(dsInfo); };
 	void RemoveDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo) { list_descriptorSets.erase(std::remove(list_descriptorSets.begin(), list_descriptorSets.end(), dsInfo), list_descriptorSets.end()); };
@@ -25,9 +26,6 @@ private:
 	VkImageViewType GetImageViewTypeFromGX2Dim(Latte::E_DIM dim);
 	VKRObjectTextureView* CreateView(uint32 gpuSamplerSwizzle);
 
-	// each texture view holds one Vulkan image view per swizzle mask. Image views are only instantiated when requested via GetViewRGBA/GetSamplerView
-	// since a large majority of texture views will only have 1 or 2 instantiated image views, we use a small fixed-size cache
-	// and only allocate the larger map (m_fallbackCache) if necessary
 	inline static const uint32 CACHE_EMPTY_ENTRY = 0xFFFFFFFF;
 
 	uint32 m_smallCacheSwizzle0 = { CACHE_EMPTY_ENTRY };
@@ -38,7 +36,11 @@ private:
 	
 	VkDevice m_device;
 	VkFormat m_format;
-	std::vector<struct VkDescriptorSetInfo*> list_descriptorSets; // list of descriptors sets referencing this view
+	
+	// Esta es la variable que el .cpp necesita encontrar
+	VkImageView m_view = VK_NULL_HANDLE; 
+
+	std::vector<struct VkDescriptorSetInfo*> list_descriptorSets; 
 
 	uint64 m_uniqueId;
 };
