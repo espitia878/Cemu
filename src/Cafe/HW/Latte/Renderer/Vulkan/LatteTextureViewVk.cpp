@@ -7,14 +7,14 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* tex, Lat
 	: LatteTextureView(tex, dim, format, firstMip, mipCount, firstSlice, sliceCount)
 	, m_device(device)
 {
-	// Usamos GetImageObj() que confirmamos en LatteTextureVk.h
+	// Obtenemos el objeto de textura (confirmado en LatteTextureVk.h)
 	auto vkObj = tex->GetImageObj();
 	m_format = vkObj->m_format;
 	m_uniqueId = 0; 
 
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewInfo.image = vkObj->m_image;
+	viewInfo.image = vkObj->m_image; // Nombre confirmado en VKRBase.h
 	
 	switch (dim)
 	{
@@ -27,19 +27,26 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* tex, Lat
 	}
 
 	viewInfo.format = m_format;
-	viewInfo.subresourceRange.aspectMask = vkObj->m_imageAspect;
-	viewInfo.subresourceRange.baseMipLevel = firstMip;
-	viewInfo.subresourceRange.levelCount = mipCount;
-	viewInfo.subresourceRange.baseArrayLayer = firstSlice;
-	viewInfo.subresourceRange.layerCount = sliceCount;
+	viewInfo.subresourceRange.aspectMask = vkObj->m_imageAspect; // Nombre confirmado en VKRBase.h
+	viewInfo.subresourceRange.baseMipLevel = (uint32)firstMip;
+	viewInfo.subresourceRange.levelCount = (uint32)mipCount;
+	viewInfo.subresourceRange.baseArrayLayer = (uint32)firstSlice;
+	viewInfo.subresourceRange.layerCount = (uint32)sliceCount;
 
-	vkCreateImageView(m_device, &viewInfo, nullptr, &m_view);
+	// Intentar crear la vista
+	if (vkCreateImageView(m_device, &viewInfo, nullptr, &m_view) != VK_SUCCESS)
+	{
+		m_view = VK_NULL_HANDLE;
+	}
 }
 
 LatteTextureViewVk::~LatteTextureViewVk()
 {
 	if (m_view != VK_NULL_HANDLE)
+	{
 		vkDestroyImageView(m_device, m_view, nullptr);
+		m_view = VK_NULL_HANDLE;
+	}
 }
 
 void LatteTextureViewVk::AddDescriptorSetReference(struct VkDescriptorSetInfo* dsInfo) {
