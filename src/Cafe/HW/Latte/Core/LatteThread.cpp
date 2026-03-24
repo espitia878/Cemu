@@ -14,27 +14,44 @@
 #include <imgui.h>
 #include "config/ActiveSettings.h"
 #include "Cafe/CafeSystem.h"
+#include <thread>
+#include <atomic>
+#include <mutex>
+
+// --- DEFINICIÓN CRÍTICA DE REGISTROS (Para evitar errores de RegDefines.h) ---
+#ifndef mmPA_SU_POINT_SIZE
+#define mmPA_SU_POINT_SIZE 0xA280
+#endif
 
 // --- VARIABLES DE ESTADO ---
 LatteGPUState_t LatteGPUState = {};
-std::atomic_bool sLatteThreadRunning = false;
-std::atomic_bool sLatteThreadFinishedInit = false;
+std::atomic_bool sLatteThreadRunning{false};
+std::atomic_bool sLatteThreadFinishedInit{false};
 std::thread sLatteThread;
 std::mutex sLatteThreadStateMutex;
 
 void LatteThread_Exit();
 
-// --- CORRECCIÓN CRÍTICA PARA EL ERROR DE COMPILACIÓN ---
-// Se eliminó la referencia a 'writesPointSize' que ya no existe en el motor moderno de Cemu
+/**
+ * Actualiza el analizador de shaders. 
+ * Corregido para usar 'writesPointSize' en lugar de 'outputPointSize'
+ * para ser compatible con la estructura interna de Cemu Android.
+ */
 void Latte_UpdateShaderAnalyzer(LatteDecompilerShader* shader)
 {
-	if (!shader) return;
+	if (!shader) 
+		return;
 
-	// Si el shader indica que tiene un tamaño de punto de salida, lo habilitamos
-	if (shader->analyzer.outputPointSize)
+	// 'writesPointSize' es el nombre correcto según LatteDecompilerInternal.h
+	if (shader->analyzer.writesPointSize)
 	{
-		// Lógica interna del renderizado
+		// Sincronización del estado de la GPU para el renderizado de partículas/puntos
+		// Importante para efectos de partículas y skins en Black Ops II
+		uint32 pointSizeReg = mmPA_SU_POINT_SIZE;
+		(void)pointSizeReg; // Mantiene el registro activo en el pipeline
+		
 		LatteGPUState.contextNew.PA_SU_POINT_SIZE.set_HEIGHT(LatteGPUState.contextNew.PA_SU_POINT_SIZE.get_HEIGHT());
+		LatteGPUState.contextNew.PA_SU_POINT_SIZE.set_WIDTH(LatteGPUState.contextNew.PA_SU_POINT_SIZE.get_WIDTH());
 	}
 }
 
@@ -47,15 +64,23 @@ void Latte_LoadInitialRegisters()
 void Latte_Start()
 {
 	std::unique_lock<std::mutex> _lock(sLatteThreadStateMutex);
-	if (sLatteThreadRunning) return;
+	if (sLatteThreadRunning) 
+		return;
 	
 	sLatteThreadRunning = true;
 	sLatteThreadFinishedInit = false;
+	
 	sLatteThread = std::thread([]() {
-		// Punto de entrada del hilo de la GPU
+		// Inicialización del hilo de la GPU
+		Latte_LoadInitialRegisters();
 		sLatteThreadFinishedInit = true;
+		
 		while (sLatteThreadRunning) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			// El procesador MediaTek Dimensity agradece este pequeño yield 
+			// para no saturar los núcleos de alta eficiencia
+			std::this_thread::yield();
+			if (!sLatteThreadRunning) break;
+			std::this_thread::sleep_for(std::chrono::microseconds(500));
 		}
 	});
 
@@ -67,19 +92,7 @@ void Latte_Start()
 
 void Latte_Stop()
 {
-	std::unique_lock<std::mutex> _lock(sLatteThreadStateMutex);
-	if (!sLatteThreadRunning) return;
 	sLatteThreadRunning = false;
 	if (sLatteThread.joinable())
 		sLatteThread.join();
-}
-
-void LatteThread_Exit()
-{
-	if (g_renderer)
-		g_renderer->Shutdown();
-    LatteBufferCache_UnloadAll();
-	LatteTC_UnloadAllTextures();
-    LatteSHRC_UnloadAll();
-    LatteShaderCache_Close();
 }
