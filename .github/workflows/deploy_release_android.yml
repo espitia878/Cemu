@@ -35,44 +35,43 @@ jobs:
         run: |
           sudo apt update -qq
           sudo apt install -y gettext mono-complete ninja-build cmake
-          # VERIFICACIÓN: ¿Están instalados?
+          # VERIFICACIÓN: Confirmar herramientas para el log
           cmake --version
           ninja --version
 
-      - name: Inspect Source Code (Zombie Patch Check)
+      - name: Pre-Build Inspection (The "Sniffer")
         run: |
-          echo "--- REVISANDO EL PARCHE DE TEXTURAS ---"
-          # Buscamos el archivo y mostramos las líneas del parche para confirmar que existen
-          FILE_PATH=$(find . -name "VulkanRenderer.cpp")
-          if [ -f "$FILE_PATH" ]; then
-            echo "Archivo encontrado en: $FILE_PATH"
-            grep -C 5 "BC5_UNORM" "$FILE_PATH" || echo "ADVERTENCIA: No se encontró la línea del parche BC5."
-          else
-            echo "ERROR CRÍTICO: No se encuentra VulkanRenderer.cpp"
-            exit 1
-          fi
+          echo "--- BUSCANDO ARCHIVOS CRÍTICOS ---"
+          # Localiza el archivo del parche y verifica si el código está ahí
+          VULKAN_FILE=$(find . -name "VulkanRenderer.cpp")
+          echo "VulkanRenderer.cpp encontrado en: $VULKAN_FILE"
+          if [ -z "$VULKAN_FILE" ]; then echo "ERROR: Archivo C++ no encontrado"; exit 1; fi
+          
+          # Verifica si el parche BC5 está aplicado antes de compilar
+          grep -n "BC5_UNORM" "$VULKAN_FILE" || echo "ADVERTENCIA: Parche no detectado en el archivo"
 
-      - name: Build Cemu (Full Verbose & Debug)
+      - name: Build Cemu (Deep Diagnostic Mode)
         run: |
           ANDROID_PATH=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           cd "$ANDROID_PATH"
           chmod +x gradlew
           
-          # Limpieza total de caché de CMake (para evitar errores de versiones viejas)
+          # Limpieza total: Borrar rastros de compilaciones fallidas anteriores
           ./gradlew clean
-          rm -rf .externalNativeBuild .cxx app/.cxx app/build
+          rm -rf .gradle .cxx app/.cxx app/build
           
-          # COMPILACIÓN CON TRAPAS DE ERROR
-          # -Pandroid.display_cxx_logs=true: Muestra errores de C++ en el log de GitHub
-          # --debug: Si hay un error de Java/Gradle, lo dirá todo
+          # COMPILACIÓN CON SENSORES ACTIVOS
+          # -Pandroid.display_cxx_logs=true: Obliga a CMake a mostrar errores de C++
+          # --stacktrace: Muestra dónde se rompe la cadena de comandos
           ./gradlew assembleRelease --stacktrace --info -Pandroid.display_cxx_logs=true
 
-      - name: Search and Debug APK
-        if: always() # Se ejecuta aunque la compilación falle para ver qué se logró crear
+      - name: Post-Mortem Debug
+        if: always() # Se ejecuta aunque falle para ver qué se alcanzó a crear
         run: |
-          echo "--- MAPA DE ARCHIVOS GENERADOS ---"
-          find . -name "*.apk"
-          find . -name "cmake_libs_outputs" -type d || echo "No se generaron librerías nativas"
+          echo "--- ESTADO FINAL DEL PROYECTO ---"
+          find . -name "*.apk" || echo "No se generó el APK"
+          # Listar errores específicos de CMake si existen
+          find . -name "cmake_libs_outputs" -type d || echo "No hay salida de librerías nativas"
 
       - name: Upload Artifact
         if: success()
@@ -80,9 +79,6 @@ jobs:
           VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
           mkdir -p upload
           find . -name "*.apk" -exec cp {} upload/Cemu-$VERSION.apk \;
-          
-          # Verificar si el archivo pesa lo que debe (un APK vacío es mala señal)
-          ls -lh upload/
           
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz
           tar xvzf ghr.tar.gz; rm ghr.tar.gz
