@@ -13,7 +13,7 @@
 #include "util/helpers/helpers.h"
 #include <cstring>
 
-// Declaración de funciones externas (Firma exacta de tus .cpp)
+// Declaramos las funciones como parte del proyecto para que el linker las busque
 void LatteDecompiler_analyze(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
 void LatteDecompiler_emitGLSLShader(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
 
@@ -33,10 +33,9 @@ static void _LatteDecompiler_DoWork(LatteDecompilerShaderContext* shaderContext,
     LatteDecompilerShader shader{}; 
     shader.programCode = programData;
     shader.programSize = programSize;
-    
-    // CORRECCIÓN CLAVE: Convertimos el enum a uint32 para evitar el error del log 17:48
     shader.shaderType = (uint32)shaderContext->shaderType;
 
+    // Llamada directa a las funciones de los .cpp vecinos
     LatteDecompiler_analyze(shaderContext, &shader);
     LatteDecompiler_emitGLSLShader(shaderContext, &shader);
 }
