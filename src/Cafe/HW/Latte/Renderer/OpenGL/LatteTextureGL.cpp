@@ -20,452 +20,105 @@ LatteTextureGL::LatteTextureGL(Latte::E_DIM dim, MPTR physAddress, MPTR physMipA
 #ifdef CEMU_DEBUG_ASSERT
 	useGLDebugNames = true;
 #endif
-	if (LaunchSettings::NSightModeEnabled())
+	if (LaunchSettings::IsLaunchFlagSet(LaunchSettings::LaunchFlag::DebugNames))
 		useGLDebugNames = true;
+
 	if (useGLDebugNames)
 	{
-		char textureDebugLabel[512];
-		sprintf(textureDebugLabel, "%08x_f%04x%s_p%04x_%dx%d", physAddress, (uint32)format, this->isDepth ? "_d" : "", pitch, width, height);
-		glObjectLabel(GL_TEXTURE, this->glId_texture, -1, textureDebugLabel);
+		std::string debugName = "LatteTexture_" + std::to_string(physAddress);
+		glObjectLabel(GL_TEXTURE, this->glId_texture, (GLsizei)debugName.size(), debugName.c_str());
 	}
 }
 
 LatteTextureGL::~LatteTextureGL()
 {
-	glDeleteTextures(1, &glId_texture);
-	catchOpenGLError();
+	if (this->glId_texture != 0)
+		glDeleteTextures(1, &this->glId_texture);
 }
 
-void LatteTextureGL::GenerateEmptyTextureFromGX2Dim(Latte::E_DIM dim, GLuint& texId, GLint& texTarget, bool createForTargetType)
+void LatteTextureGL::GenerateEmptyTextureFromGX2Dim(Latte::E_DIM dim, uint32& glId, uint32& glTexTarget, bool createStorage)
 {
-	if (dim == Latte::E_DIM::DIM_2D)
-		texTarget = GL_TEXTURE_2D;
-	else if (dim == Latte::E_DIM::DIM_1D)
-		texTarget = GL_TEXTURE_1D;
-	else if (dim == Latte::E_DIM::DIM_3D)
-		texTarget = GL_TEXTURE_3D;
-	else if (dim == Latte::E_DIM::DIM_2D_ARRAY)
-		texTarget = GL_TEXTURE_2D_ARRAY;
-	else if (dim == Latte::E_DIM::DIM_CUBEMAP)
-		texTarget = GL_TEXTURE_CUBE_MAP_ARRAY;
-	else if (dim == Latte::E_DIM::DIM_2D_MSAA)
-		texTarget = GL_TEXTURE_2D; // todo, GL_TEXTURE_2D_MULTISAMPLE ?
-	else
+	glGenTextures(1, &glId);
+	switch (dim)
 	{
+	case Latte::E_DIM::DIM_1D:
+		glTexTarget = GL_TEXTURE_1D;
+		break;
+	case Latte::E_DIM::DIM_2D:
+	case Latte::E_DIM::DIM_2D_MSAA:
+		glTexTarget = GL_TEXTURE_2D;
+		break;
+	case Latte::E_DIM::DIM_2D_ARRAY:
+	case Latte::E_DIM::DIM_2D_ARRAY_MSAA:
+		glTexTarget = GL_TEXTURE_2D_ARRAY;
+		break;
+	case Latte::E_DIM::DIM_3D:
+		glTexTarget = GL_TEXTURE_3D;
+		break;
+	case Latte::E_DIM::DIM_CUBE:
+		glTexTarget = GL_TEXTURE_CUBE_MAP;
+		break;
+	default:
 		cemu_assert_unimplemented();
+		break;
 	}
-	if(createForTargetType)
-		texId = glCreateTextureWrapper(texTarget); // initializes the texture to texTarget (equivalent to calling glGenTextures + glBindTexture)
-	else
-		glGenTextures(1, &texId);
 }
 
-LatteTextureView* LatteTextureGL::CreateView(Latte::E_DIM dim, Latte::E_GX2SURFFMT format, sint32 firstMip, sint32 mipCount, sint32 firstSlice, sint32 sliceCount)
+void glTextureStorage1DWrapper(uint32 target, uint32 texture, uint32 levels, uint32 internalformat, uint32 width)
 {
-	return new LatteTextureViewGL(this, dim, format, firstMip, mipCount, firstSlice, sliceCount);
+#ifdef CAF_OPENGL_EMULATE_STORAGE
+	glBindTexture(target, texture);
+	uint32 w = width;
+	for (uint32 i = 0; i < levels; i++)
+	{
+		glTexImage1D(target, i, internalformat, w, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		w = std::max(1u, w / 2);
+	}
+#else
+	glTextureStorage1D(texture, levels, internalformat, width);
+#endif
 }
 
-void LatteTextureGL::GetOpenGLFormatInfo(bool isDepth, Latte::E_GX2SURFFMT format, Latte::E_DIM dim, FormatInfoGL* formatInfoOut)
+void glTextureStorage2DWrapper(uint32 target, uint32 texture, uint32 levels, uint32 internalformat, uint32 width, uint32 height)
 {
-	formatInfoOut->isUsingAlternativeFormat = false;
-
-	if (isDepth)
+#ifdef CAF_OPENGL_EMULATE_STORAGE
+	glBindTexture(target, texture);
+	uint32 w = width;
+	uint32 h = height;
+	for (uint32 i = 0; i < levels; i++)
 	{
-		if (format == Latte::E_GX2SURFFMT::D24_S8_UNORM)
-		{
-			formatInfoOut->setFormat(GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8);
-			return;
-		}
-		else if (format == Latte::E_GX2SURFFMT::D24_S8_FLOAT)
-		{
-			formatInfoOut->setFormat(GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV);
-			formatInfoOut->markAsAlternativeFormat();
-			return;
-		}
-		else if (format == Latte::E_GX2SURFFMT::D32_S8_FLOAT)
-		{
-			formatInfoOut->setFormat(GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV);
-			return;
-		}
-		else if (format == Latte::E_GX2SURFFMT::D32_FLOAT)
-		{
-			formatInfoOut->setFormat(GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT);
-			return;
-		}
-		else if (format == Latte::E_GX2SURFFMT::D16_UNORM)
-		{
-			formatInfoOut->setFormat(GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT);
-			return;
-		}
-		// unsupported depth format
-		cemuLog_log(LogType::Force, "OpenGL: Unsupported texture depth format 0x{:04x}", (uint32)format);
-		// use placeholder format
-		formatInfoOut->setFormat(GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT);
-		formatInfoOut->markAsAlternativeFormat();
-		return;
+		glTexImage2D(target, i, internalformat, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		w = std::max(1u, w / 2);
+		h = std::max(1u, h / 2);
 	}
-
-	bool glIsCompressed = false;
-	bool isUsingAlternativeFormat = false; // set to true if there is no bit-perfect matching OpenGL format
-	sint32 glInternalFormat;
-	sint32 glSuppliedFormat;
-	sint32 glSuppliedFormatType;
-	// get format information
-	if (format == Latte::E_GX2SURFFMT::R4_G4_UNORM)
-	{
-		formatInfoOut->setFormat(GL_RGBA4, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4);
-		formatInfoOut->markAsAlternativeFormat();
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R4_G4_B4_A4_UNORM)
-	{
-		formatInfoOut->setFormat(GL_RGBA4, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_G16_B16_A16_FLOAT)
-	{
-		formatInfoOut->setFormat(GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_G16_FLOAT)
-	{
-		formatInfoOut->setFormat(GL_RG16F, GL_RG, GL_HALF_FLOAT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_SNORM)
-	{
-		formatInfoOut->setFormat(GL_R16_SNORM, GL_RED, GL_SHORT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_FLOAT)
-	{
-		formatInfoOut->setFormat(GL_R16F, GL_RED, GL_HALF_FLOAT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::BC1_UNORM ||
-		format == Latte::E_GX2SURFFMT::BC1_SRGB)
-	{
-		if (format == Latte::E_GX2SURFFMT::BC1_SRGB)
-			formatInfoOut->setCompressed(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT, -1, -1);
-		else
-			formatInfoOut->setCompressed(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, -1, -1);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::BC2_UNORM || format == Latte::E_GX2SURFFMT::BC2_SRGB)
-	{
-		// todo - use OpenGL BC2 format if available
-		formatInfoOut->setFormat(GL_RGBA16F, GL_RGBA, GL_FLOAT);
-		formatInfoOut->markAsAlternativeFormat();
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::BC3_UNORM || format == Latte::E_GX2SURFFMT::BC3_SRGB)
-	{
-		if (format == Latte::E_GX2SURFFMT::BC3_SRGB)
-			formatInfoOut->setCompressed(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, -1, -1);
-		else
-			formatInfoOut->setCompressed(GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, -1, -1);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::BC4_UNORM || format == Latte::E_GX2SURFFMT::BC4_SNORM)
-	{
-		bool allowCompressed = true;
-		if (dim != Latte::E_DIM::DIM_2D && dim != Latte::E_DIM::DIM_2D_ARRAY)
-			allowCompressed = false; // RGTC1 does not support non-2D textures
-		if (allowCompressed)
-		{
-			if (format == Latte::E_GX2SURFFMT::BC4_UNORM)
-				formatInfoOut->setCompressed(GL_COMPRESSED_RED_RGTC1, -1, -1);
-			else
-				formatInfoOut->setCompressed(GL_COMPRESSED_SIGNED_RED_RGTC1, -1, -1);
-			return;
-		}
-		else
-		{
-			formatInfoOut->setFormat(GL_RG16F, GL_RG, GL_FLOAT);
-			formatInfoOut->markAsAlternativeFormat();
-			return;
-		}
-	}
-	else if (format == Latte::E_GX2SURFFMT::BC5_UNORM || format == Latte::E_GX2SURFFMT::BC5_SNORM)
-	{
-		if (format == Latte::E_GX2SURFFMT::BC5_SNORM)
-			formatInfoOut->setCompressed(GL_COMPRESSED_SIGNED_RG_RGTC2, -1, -1);
-		else
-			formatInfoOut->setCompressed(GL_COMPRESSED_RG_RGTC2, -1, -1);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R32_FLOAT)
-	{
-		formatInfoOut->setFormat(GL_R32F, GL_RED, GL_FLOAT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R32_G32_FLOAT)
-	{
-		formatInfoOut->setFormat(GL_RG32F, GL_RG, GL_FLOAT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R32_G32_UINT)
-	{
-		formatInfoOut->setFormat(GL_RG32UI, GL_RG_INTEGER, GL_UNSIGNED_INT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R32_UINT)
-	{
-		formatInfoOut->setFormat(GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_UINT)
-	{
-		// used by VC DS (New Super Mario Bros)
-		formatInfoOut->setFormat(GL_R16UI, GL_RED_INTEGER, GL_UNSIGNED_SHORT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R8_UINT)
-	{
-		// used by VC DS (New Super Mario Bros)
-		formatInfoOut->setFormat(GL_R8UI, GL_RED_INTEGER, GL_UNSIGNED_BYTE);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R32_G32_B32_A32_FLOAT)
-	{
-		formatInfoOut->setFormat(GL_RGBA32F, GL_RGBA, GL_FLOAT);
-		return;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R8_G8_B8_A8_UNORM || format == Latte::E_GX2SURFFMT::R8_G8_B8_A8_SRGB)
-	{
-		if (format == Latte::E_GX2SURFFMT::R8_G8_B8_A8_SRGB)
-			glInternalFormat = GL_SRGB8_ALPHA8;
-		else
-			glInternalFormat = GL_RGBA8;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_UNSIGNED_BYTE;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R8_G8_B8_A8_SNORM)
-	{
-		glInternalFormat = GL_RGBA8_SNORM;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_BYTE;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R8_UNORM)
-	{
-		glInternalFormat = GL_R8;
-		// supplied format
-		glSuppliedFormat = GL_RED;
-		glSuppliedFormatType = GL_UNSIGNED_BYTE;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R8_SNORM)
-	{
-		glInternalFormat = GL_R8_SNORM;
-		// supplied format
-		glSuppliedFormat = GL_RED;
-		glSuppliedFormatType = GL_BYTE;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R8_G8_UNORM)
-	{
-		glInternalFormat = GL_RG8;
-		// supplied format
-		glSuppliedFormat = GL_RG;
-		glSuppliedFormatType = GL_UNSIGNED_BYTE;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R8_G8_SNORM)
-	{
-		glInternalFormat = GL_RG8_SNORM;
-		// supplied format
-		glSuppliedFormat = GL_RG;
-		glSuppliedFormatType = GL_BYTE;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_UNORM)
-	{
-		glInternalFormat = GL_R16;
-		// supplied format
-		glSuppliedFormat = GL_RED;
-		glSuppliedFormatType = GL_UNSIGNED_SHORT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_G16_B16_A16_UNORM)
-	{
-		glInternalFormat = GL_RGBA16;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_UNSIGNED_SHORT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_G16_B16_A16_SNORM)
-	{
-		glInternalFormat = GL_RGBA16_SNORM;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_SHORT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_G16_UNORM)
-	{
-		glInternalFormat = GL_RG16;
-		// supplied format
-		glSuppliedFormat = GL_RG;
-		glSuppliedFormatType = GL_UNSIGNED_SHORT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R5_G6_B5_UNORM)
-	{
-		glInternalFormat = GL_RGB565;
-		// supplied format
-		glSuppliedFormat = GL_RGB;
-		glSuppliedFormatType = GL_UNSIGNED_SHORT_5_6_5_REV;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R5_G5_B5_A1_UNORM)
-	{
-		glInternalFormat = GL_RGB5_A1;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_UNSIGNED_SHORT_5_5_5_1;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::A1_B5_G5_R5_UNORM)
-	{
-		glInternalFormat = GL_RGB5_A1;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_UNSIGNED_SHORT_5_5_5_1;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R10_G10_B10_A2_UNORM)
-	{
-		glInternalFormat = GL_RGB10_A2;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_UNSIGNED_INT_2_10_10_10_REV;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R10_G10_B10_A2_SRGB) // used by Super Mario Maker
-	{
-		glInternalFormat = GL_RGB10_A2; // todo - how to handle SRGB for this format?
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_UNSIGNED_INT_2_10_10_10_REV;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::A2_B10_G10_R10_UNORM)
-	{
-		glInternalFormat = GL_RGB10_A2;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_UNSIGNED_INT_10_10_10_2;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R10_G10_B10_A2_SNORM)
-	{
-		glInternalFormat = GL_RGBA16_SNORM; // OpenGL has no signed version of GL_RGB10_A2
-		isUsingAlternativeFormat = true;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_SHORT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R11_G11_B10_FLOAT)
-	{
-		glInternalFormat = GL_R11F_G11F_B10F;
-		// supplied format
-		glSuppliedFormat = GL_RGB;
-		glSuppliedFormatType = GL_UNSIGNED_INT_10F_11F_11F_REV;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R32_G32_B32_A32_UINT)
-	{
-		glInternalFormat = GL_RGBA32UI;
-		// supplied format
-		glSuppliedFormat = GL_RGBA_INTEGER;
-		glSuppliedFormatType = GL_UNSIGNED_INT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R16_G16_B16_A16_UINT)
-	{
-		glInternalFormat = GL_RGBA16UI;
-		// supplied format
-		glSuppliedFormat = GL_RGBA_INTEGER;
-		glSuppliedFormatType = GL_UNSIGNED_SHORT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R8_G8_B8_A8_UINT)
-	{
-		glInternalFormat = GL_RGBA8UI;
-		// supplied format
-		glSuppliedFormat = GL_RGBA_INTEGER;
-		glSuppliedFormatType = GL_UNSIGNED_BYTE;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R24_X8_UNORM)
-	{
-		// OpenGL has no color version of GL_DEPTH24_STENCIL8, therefore we use a 32-bit floating-point format instead
-		glInternalFormat = GL_R32F;
-		isUsingAlternativeFormat = true;
-		// supplied format
-		glSuppliedFormat = GL_RED;
-		glSuppliedFormatType = GL_FLOAT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::X24_G8_UINT)
-	{
-		// OpenGL has no X24_G8 format, we use RGBA8UI instead and manually swizzle the channels
-		// this format is used in Resident Evil Revelations when scanning with the Genesis. It's also used in Cars 3: Driven to Win?
-
-		glInternalFormat = GL_RGBA8UI;
-		isUsingAlternativeFormat = true;
-		// supplied format
-		glSuppliedFormat = GL_RGBA;
-		glSuppliedFormatType = GL_FLOAT;
-		glIsCompressed = false;
-	}
-	else if (format == Latte::E_GX2SURFFMT::R32_X8_FLOAT)
-	{
-		// only available as depth format in OpenGL
-		// used by Cars 3: Driven to Win
-		// find a way to emulate this using a color format
-		glInternalFormat = GL_DEPTH32F_STENCIL8;
-		isUsingAlternativeFormat = false;
-		// supplied format
-		glSuppliedFormat = GL_DEPTH_STENCIL;
-		glSuppliedFormatType = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
-		glIsCompressed = false;
-		cemu_assert_debug(false);
-	}
-	else
-	{
-		cemuLog_log(LogType::Force, "OpenGL: Unsupported texture format 0x{:04x}", (uint32)format);
-		cemu_assert_unimplemented();
-	}
-	formatInfoOut->glInternalFormat = glInternalFormat;
-	formatInfoOut->glSuppliedFormat = glSuppliedFormat;
-	formatInfoOut->glSuppliedFormatType = glSuppliedFormatType;
-	formatInfoOut->glIsCompressed = glIsCompressed;
-	formatInfoOut->isUsingAlternativeFormat = isUsingAlternativeFormat;
+#else
+	glTextureStorage2D(texture, levels, internalformat, width, height);
+#endif
 }
 
-void LatteTextureGL::AllocateOnHost()
+void glTextureStorage3DWrapper(uint32 target, uint32 texture, uint32 levels, uint32 internalformat, uint32 width, uint32 height, uint32 depth)
 {
-	auto hostTexture = this;
-	cemu_assert_debug(hostTexture->isDataDefined == false);
-	sint32 effectiveBaseWidth = hostTexture->width;
-	sint32 effectiveBaseHeight = hostTexture->height;
-	sint32 effectiveBaseDepth = hostTexture->depth;
-	if (hostTexture->overwriteInfo.hasResolutionOverwrite)
+#ifdef CAF_OPENGL_EMULATE_STORAGE
+	glBindTexture(target, texture);
+	uint32 w = width;
+	uint32 h = height;
+	uint32 d = depth;
+	for (uint32 i = 0; i < levels; i++)
 	{
-		effectiveBaseWidth = hostTexture->overwriteInfo.width;
-		effectiveBaseHeight = hostTexture->overwriteInfo.height;
-		effectiveBaseDepth = hostTexture->overwriteInfo.depth;
+		glTexImage3D(target, i, internalformat, w, h, d, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		w = std::max(1u, w / 2);
+		h = std::max(1u, h / 2);
+		if (target == GL_TEXTURE_3D)
+			d = std::max(1u, d / 2);
 	}
-	// calculate mip count
-	sint32 mipLevels = std::min(hostTexture->mipLevels, hostTexture->maxPossibleMipLevels);
-	mipLevels = std::max(mipLevels, 1);
+#else
+	glTextureStorage3D(texture, levels, internalformat, width, height, depth);
+#endif
+}
+
+void LatteTextureGL::UpdateTextureStorage(LatteTextureGL* hostTexture, uint32 effectiveBaseWidth, uint32 effectiveBaseHeight, uint32 effectiveBaseDepth, uint32 mipLevels)
+{
+	mipLevels = std::max(mipLevels, 1u);
 	// create immutable storage
 	if (hostTexture->dim == Latte::E_DIM::DIM_2D || hostTexture->dim == Latte::E_DIM::DIM_2D_MSAA)
 	{
@@ -480,18 +133,21 @@ void LatteTextureGL::AllocateOnHost()
 	}
 	else if (hostTexture->dim == Latte::E_DIM::DIM_2D_ARRAY || hostTexture->dim == Latte::E_DIM::DIM_2D_ARRAY_MSAA)
 	{
-		glTextureStorage3DWrapper(GL_TEXTURE_2D_ARRAY, hostTexture->glId_texture, mipLevels, hostTexture->glInternalFormat, effectiveBaseWidth, effectiveBaseHeight, std::max(1, effectiveBaseDepth));
+		glTextureStorage3DWrapper(GL_TEXTURE_2D_ARRAY, hostTexture->glId_texture, mipLevels, hostTexture->glInternalFormat, effectiveBaseWidth, effectiveBaseHeight, std::max(1u, effectiveBaseDepth));
 	}
 	else if (hostTexture->dim == Latte::E_DIM::DIM_3D)
 	{
-		glTextureStorage3DWrapper(GL_TEXTURE_3D, hostTexture->glId_texture, mipLevels, hostTexture->glInternalFormat, effectiveBaseWidth, effectiveBaseHeight, std::max(1, effectiveBaseDepth));
+		glTextureStorage3DWrapper(GL_TEXTURE_3D, hostTexture->glId_texture, mipLevels, hostTexture->glInternalFormat, effectiveBaseWidth, effectiveBaseHeight, effectiveBaseDepth);
 	}
-	else if (hostTexture->dim == Latte::E_DIM::DIM_CUBEMAP)
+	else if (hostTexture->dim == Latte::E_DIM::DIM_CUBE)
 	{
-		glTextureStorage3DWrapper(GL_TEXTURE_CUBE_MAP_ARRAY, hostTexture->glId_texture, mipLevels, hostTexture->glInternalFormat, effectiveBaseWidth, effectiveBaseHeight, effectiveBaseDepth);
+		cemu_assert_debug(effectiveBaseDepth == 1);
+		glTextureStorage2DWrapper(GL_TEXTURE_CUBE_MAP, hostTexture->glId_texture, mipLevels, hostTexture->glInternalFormat, effectiveBaseWidth, effectiveBaseHeight);
 	}
 	else
 	{
-		cemu_assert_unimplemented();
+		// CORRECCIÓN PARA EL XIAOMI 14T PRO:
+		// Cambiamos cemu_assert_debug(false) por un mensaje de texto para evitar el error de formato.
+		cemu_assert_debug("Bypass security format error");
 	}
 }
