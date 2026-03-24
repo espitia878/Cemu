@@ -14,45 +14,75 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: "recursive"
           fetch-depth: 0
 
-      - name: set up JDK 21
-        uses: actions/setup-java@v3
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: gradle
+          cache: 'gradle'
 
-      - name: Install System Dependencies
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+
+      - name: Install Build Tools
         run: |
           sudo apt update -qq
           sudo apt install -y gettext mono-complete ninja-build cmake
+          # VERIFICACIÓN: ¿Están instalados?
+          cmake --version
+          ninja --version
 
-      - name: Build Cemu (Modo Diagnóstico Pro)
+      - name: Inspect Source Code (Zombie Patch Check)
         run: |
-          # 1. GPS de carpetas: Encuentra gradlew donde sea que esté
-          ANDROID_DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
-          echo "Proyecto detectado en: $ANDROID_DIR"
-          cd "$ANDROID_DIR"
-          
-          # 2. Borrón y cuenta nueva: Elimina basura de intentos anteriores
-          chmod +x gradlew
-          ./gradlew clean
-          rm -rf .gradle .cxx app/.cxx app/build
+          echo "--- REVISANDO EL PARCHE DE TEXTURAS ---"
+          # Buscamos el archivo y mostramos las líneas del parche para confirmar que existen
+          FILE_PATH=$(find . -name "VulkanRenderer.cpp")
+          if [ -f "$FILE_PATH" ]; then
+            echo "Archivo encontrado en: $FILE_PATH"
+            grep -C 5 "BC5_UNORM" "$FILE_PATH" || echo "ADVERTENCIA: No se encontró la línea del parche BC5."
+          else
+            echo "ERROR CRÍTICO: No se encuentra VulkanRenderer.cpp"
+            exit 1
+          fi
 
-          # 3. Compilación con reporte máximo
-          # Esto nos dirá exactamente qué línea del código de los zombies falla
+      - name: Build Cemu (Full Verbose & Debug)
+        run: |
+          ANDROID_PATH=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
+          cd "$ANDROID_PATH"
+          chmod +x gradlew
+          
+          # Limpieza total de caché de CMake (para evitar errores de versiones viejas)
+          ./gradlew clean
+          rm -rf .externalNativeBuild .cxx app/.cxx app/build
+          
+          # COMPILACIÓN CON TRAPAS DE ERROR
+          # -Pandroid.display_cxx_logs=true: Muestra errores de C++ en el log de GitHub
+          # --debug: Si hay un error de Java/Gradle, lo dirá todo
           ./gradlew assembleRelease --stacktrace --info -Pandroid.display_cxx_logs=true
 
-      - name: Create Release
+      - name: Search and Debug APK
+        if: always() # Se ejecuta aunque la compilación falle para ver qué se logró crear
+        run: |
+          echo "--- MAPA DE ARCHIVOS GENERADOS ---"
+          find . -name "*.apk"
+          find . -name "cmake_libs_outputs" -type d || echo "No se generaron librerías nativas"
+
+      - name: Upload Artifact
         if: success()
         run: |
           VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
           mkdir -p upload
-          find . -name "*.apk" -exec mv {} upload/Cemu-$VERSION.apk \;
+          find . -name "*.apk" -exec cp {} upload/Cemu-$VERSION.apk \;
+          
+          # Verificar si el archivo pesa lo que debe (un APK vacío es mala señal)
+          ls -lh upload/
           
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz
           tar xvzf ghr.tar.gz; rm ghr.tar.gz
