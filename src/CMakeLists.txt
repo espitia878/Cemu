@@ -1,164 +1,55 @@
-Project(cemuMain)
+cmake_minimum_required(VERSION 3.10)
+project(cemuMain)
 
-option(CEMU_CXX_FLAGS "Additional flags used for compiling Cemu source code")
-if(CEMU_CXX_FLAGS)
-	add_compile_options(${CEMU_CXX_FLAGS})
+# Definiciones globales para Android
+if(ANDROID)
+    add_compile_definitions(VK_USE_PLATFORM_ANDROID_KHR)
+    add_compile_definitions(VK_NO_PROTOTYPES)
 endif()
 
-if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-	message( FATAL_ERROR "Pointers are not 64bit" )
-endif()
-
-if(MSVC)
-	add_compile_definitions(WIN32_LEAN_AND_MEAN CURL_STATICLIB)
-elseif(UNIX)
-	if(APPLE)
-		add_compile_definitions(
-			_XOPEN_SOURCE
-			VK_USE_PLATFORM_MACOS_MVK
-			VK_USE_PLATFORM_METAL_EXT
-		)
-	elseif(ANDROID)
-		add_compile_definitions(VK_USE_PLATFORM_ANDROID_KHR)
-	else()
-		add_compile_definitions(
-			VK_USE_PLATFORM_XLIB_KHR # legacy. Do we need to support XLIB surfaces?
-			VK_USE_PLATFORM_XCB_KHR
-		)
-		if (ENABLE_WAYLAND)
-			add_compile_definitions(VK_USE_PLATFORM_WAYLAND_KHR)
-		endif()
-	endif()
-	# warnings
-	if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
-		add_compile_options(-Wno-ambiguous-reversed-operator)
-	endif()
-
-    add_compile_options(-Wno-multichar -Wno-invalid-offsetof -Wno-switch -Wno-ignored-attributes -Wno-deprecated-enum-enum-conversion)
-endif()
-
-add_compile_definitions(VK_NO_PROTOTYPES)
+# Flags de compilación para evitar avisos innecesarios
+add_compile_options(-Wno-multichar -Wno-invalid-offsetof -Wno-switch -Wno-ignored-attributes -Wno-deprecated-enum-enum-conversion)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-add_subdirectory(Common)
-add_subdirectory(gui)
-add_subdirectory(Cafe)
-add_subdirectory(Cemu)
-add_subdirectory(config)
-add_subdirectory(input)
-add_subdirectory(audio)
-add_subdirectory(util)
-add_subdirectory(imgui)
-add_subdirectory(resource)
+# IMPORTANTE: No usamos add_subdirectory aquí para evitar el error de configuración en Android
+# En su lugar, definimos la librería principal directamente.
 
-if(ANDROID)
-    # Agregamos los archivos del LegacyShaderDecompiler aquí para que Android los compile
-    add_library(CemuBin STATIC
-        main.cpp
-        mainLLE.cpp
-        Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompiler.cpp
-        Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerAnalyzer.cpp
-        Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerEmitGLSL.cpp
-        Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerRegisterDataTypeTracker.cpp
-    )
-    add_subdirectory(android/app/src/main/cpp)
-else()
-	add_executable(CemuBin
-		main.cpp
-		mainLLE.cpp
-	)
-
-	if(MSVC AND MSVC_VERSION EQUAL 1940)
-		set_target_properties(CemuBin PROPERTIES LINK_FLAGS "/INCREMENTAL:NO")
-	endif()
-
-	if(WIN32)
-		target_sources(CemuBin PRIVATE
-		resource/cemu.rc
-	../dist/windows/cemu.manifest
-	)
-	endif()
-	set_property(TARGET CemuBin PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	set_property(TARGET CemuBin PROPERTY WIN32_EXECUTABLE $<NOT:$<CONFIG:Debug>>)
-	set(OUTPUT_NAME "Cemu_$<LOWER_CASE:$<CONFIG>>")
-endif()
-
-if (MACOS_BUNDLE)
-	set_property(TARGET CemuBin PROPERTY MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resource/MacOSXBundleInfo.plist.in")
-
-	set(RESOURCE_FILES "${CMAKE_SOURCE_DIR}/src/resource/cemu.icns")
-	target_sources(CemuBin PRIVATE "${RESOURCE_FILES}")
-
-	set(MACOSX_BUNDLE_ICON_FILE "cemu.icns")
-	set(MACOSX_BUNDLE_GUI_IDENTIFIER "info.cemu.Cemu")
-	set(MACOSX_BUNDLE_BUNDLE_NAME "Cemu")
-	set(MACOSX_BUNDLE_SHORT_VERSION_STRING "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH}")
-	set(MACOSX_BUNDLE_BUNDLE_VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH}")
-	set(MACOSX_BUNDLE_COPYRIGHT "Copyright © 2024 Cemu Project")
-
-	set(MACOSX_BUNDLE_CATEGORY "public.app-category.games")
- 	set(MACOSX_MINIMUM_SYSTEM_VERSION "12.0")
-  	set(MACOSX_BUNDLE_TYPE_EXTENSION "wua")
-
-	set_target_properties(CemuBin PROPERTIES
-		MACOSX_BUNDLE true
-		RESOURCE "${RESOURCE_FILES}"
-	)
-
-	set(FOLDERS gameProfiles resources)
-	foreach(folder ${FOLDERS})
-		add_custom_command (TARGET CemuBin POST_BUILD
-			COMMAND ${CMAKE_COMMAND} ARGS -E copy_directory "${CMAKE_SOURCE_DIR}/bin/${folder}" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/SharedSupport/${folder}")
-	endforeach(folder)
-
-	if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-	    set(LIBUSB_PATH "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/debug/lib/libusb-1.0.0.dylib")
-	else()
-	    set(LIBUSB_PATH "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib/libusb-1.0.0.dylib")
-	endif()
-
-	if (EXISTS "/usr/local/lib/libMoltenVK.dylib")
-		set(MOLTENVK_PATH "/usr/local/lib/libMoltenVK.dylib")
-	elseif (EXISTS "/opt/homebrew/lib/libMoltenVK.dylib")
-		set(MOLTENVK_PATH "/opt/homebrew/lib/libMoltenVK.dylib")
-	else()
-		message(FATAL_ERROR "failed to find libMoltenVK.dylib")
-	endif ()
-
-	add_custom_command (TARGET CemuBin POST_BUILD
-		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${MOLTENVK_PATH}" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/Frameworks/libMoltenVK.dylib"
-		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${LIBUSB_PATH}" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/Frameworks/libusb-1.0.0.dylib"
-		COMMAND ${CMAKE_SOURCE_DIR}/src/resource/update.sh" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/MacOS/update.sh"
-		COMMAND bash -c "install_name_tool -add_rpath @executable_path/../Frameworks ${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/MacOS/${OUTPUT_NAME}"
-		COMMAND bash -c "install_name_tool -change ${LIBUSB_PATH} @executable_path/../Frameworks/libusb-1.0.0.dylib ${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/MacOS/${OUTPUT_NAME}")
-endif()
-
-set_target_properties(CemuBin PROPERTIES
-	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bin/$<1:>"
-	OUTPUT_NAME "${OUTPUT_NAME}"
+set(SOURCES
+    Main.cpp
+    MainLLE.cpp
+    # Rutas de los archivos del descompilador (El corazón del fix)
+    Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompiler.cpp
+    Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerAnalyzer.cpp
+    Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerEmitGLSL.cpp
+    Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerRegisterDataTypeTracker.cpp
 )
 
+# Definimos CemuBin como librería compartida para Android
+add_library(CemuBin SHARED ${SOURCES})
+
+# Enlazamos las librerías necesarias
 target_link_libraries(CemuBin PRIVATE
-	CemuAudio
-	CemuCafe
-	CemuCommon
-	CemuGui
-	CemuComponents
-	CemuConfig
-	CemuInput
-	CemuUtil
+    CemuAudio
+    CemuCafe
+    CemuCommon
+    CemuGui
+    CemuComponents
+    CemuConfig
+    CemuInput
+    CemuUtil
+    log
+    android
+    jnigraphics
 )
 
-if(ENABLE_SDL)
-	target_link_libraries(CemuBin PRIVATE SDL2::SDL2)
-endif()
+# Configuración de salida
+set_target_properties(CemuBin PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bin"
+    OUTPUT_NAME "Cemu"
+)
 
-if(UNIX AND NOT APPLE)
-	target_link_options(CemuBin PRIVATE -z noexecstack)
-	target_link_options(CemuBin PRIVATE "$<$<CONFIG:Release>:-Xlinker;--strip-debug>")
-endif()
-
-if (BSD)
-	target_link_libraries(CemuBin PRIVATE execinfo SPIRV-Tools SPIRV-Tools-opt)
+# Si tienes subdirectorios específicos de Android, se incluyen al final
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/cpp/CMakeLists.txt")
+    add_subdirectory(android/app/src/main/cpp)
 endif()
