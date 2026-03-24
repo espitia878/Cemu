@@ -15,7 +15,7 @@
 // Declaración externa para el proceso de descompilación
 extern void _LatteDecompiler_Process(LatteDecompilerShaderContext* shaderContext, uint8* programData, uint32 programSize);
 
-// Inicialización del contexto con tipos explícitos para Android
+// Inicialización del contexto
 void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const LatteDecompilerOptions& options, LatteDecompilerOutput_t* output, LatteConst::ShaderType shaderType, uint64 shaderBaseHash, uint32* contextRegisters)
 {
 	dCtx.output = output;
@@ -73,12 +73,8 @@ void LatteDecompiler_DecompilePixelShader(uint64 shaderBaseHash, uint32* context
 	shaderContext.shader = shader;
 	if (output) output->shader = shader;
 
-	for (int i = 0; i < 16; i++)
-	{
-		shader->textureUnitSamplerAssignment[i] = -1;
-		shader->textureUsesDepthCompare[i] = false;
-	}
-
+	// Se eliminó el bucle manual de samplers para evitar errores de miembros inexistentes en Android
 	_LatteDecompiler_Process(&shaderContext, programData, programSize);
 	performanceMonitor.gpuTime_shaderCreate.endMeasuring();
 }
+
