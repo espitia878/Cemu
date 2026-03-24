@@ -26,23 +26,25 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Install Dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt update -qq
           sudo apt install -y gettext mono-complete ninja-build cmake
 
-      - name: Build Cemu
+      - name: Build Cemu (Modo Diagnóstico Pro)
         run: |
-          # 1. Localizar carpeta android sin errores de ruta
-          DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
-          cd "$DIR"
+          # 1. GPS de carpetas: Encuentra gradlew donde sea que esté
+          ANDROID_DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
+          echo "Proyecto detectado en: $ANDROID_DIR"
+          cd "$ANDROID_DIR"
           
-          # 2. Limpieza agresiva de archivos temporales
+          # 2. Borrón y cuenta nueva: Elimina basura de intentos anteriores
           chmod +x gradlew
-          rm -rf .gradle .cxx app/.cxx app/build
           ./gradlew clean
+          rm -rf .gradle .cxx app/.cxx app/build
 
-          # 3. Compilación con máxima visibilidad de errores (Modo Pro)
+          # 3. Compilación con reporte máximo
+          # Esto nos dirá exactamente qué línea del código de los zombies falla
           ./gradlew assembleRelease --stacktrace --info -Pandroid.display_cxx_logs=true
 
       - name: Create Release
