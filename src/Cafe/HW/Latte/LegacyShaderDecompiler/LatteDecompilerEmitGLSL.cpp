@@ -18,13 +18,11 @@
 
 #define _CRLF	"\r\n"
 
-// --- DEFINICIÓN PARA XIAOMI 14T PRO ---
-// 1. Definimos la variable aquí para que el archivo sepa que existe
-bool g_is_vulkan_android = false; 
-
-// 2. Creamos el puente que usará el resto del código
-#define m_is_vulkan (g_is_vulkan_android)
-// --------------------------------------
+// --- PLAN Z: SECUESTRO DE VARIABLE PARA XIAOMI 14T PRO ---
+// Usamos 'hasError' porque ya existe en la estructura original.
+// Al ponerlo en 'true', activaremos la lógica de Vulkan.
+#define m_is_vulkan (shaderContext->hasError = true)
+// ---------------------------------------------------------
 
 
 
