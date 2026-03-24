@@ -47,7 +47,7 @@ jobs:
           for mo_file in bin/resources/*/cemu.mo
           do
             language_code=$(basename $(dirname $mo_file))
-            # Ruta corregida: la carpeta 'android' está en la raíz
+            # Ruta corregida sin 'src/'
             po_file=android/app/src/main/assets/translations/$language_code/cemu.po
             mkdir -p $(dirname $po_file)
             msgunfmt $mo_file -o $po_file || echo "Skipping $mo_file"
@@ -68,10 +68,10 @@ jobs:
           EMULATOR_VERSION_MAJOR: ${{ inputs.version_major }}
           EMULATOR_VERSION_MINOR: ${{ inputs.version_minor }}
         run: |
-          # Entrar a la carpeta raíz de android
+          # Entrar a la carpeta donde está el proyecto Android
           cd ./android
 
-          # Limpiar caché de compilaciones previas
+          # Forzar limpieza para que CMake no use archivos corruptos
           ./gradlew clean
 
           if [[ -n "$ANDROID_STORE_FILE_BASE64" ]]; then
@@ -80,7 +80,7 @@ jobs:
           fi
 
           chmod +x gradlew
-          # Compilar APK. El stacktrace nos dirá exactamente si hay un error en el C++
+          # Ejecutar compilación con log detallado de errores
           ./gradlew assembleRelease --stacktrace
 
       - name: Create release
@@ -90,11 +90,11 @@ jobs:
           VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
           mkdir -p upload
           
-          # Buscar el APK generado (la ruta puede variar según la versión de Gradle)
+          # Buscar el APK en cualquier subcarpeta y moverlo
           find android/app/build/outputs/apk/ -name "*.apk" -exec mv {} upload/Cemu-$VERSION.apk \;
           
           if [ -z "$(ls -A upload)" ]; then
-             echo "ERROR: No se encontró el APK generado."
+             echo "ERROR: El APK no se generó. Revisa el log de Build Cemu."
              exit 1
           fi
 
