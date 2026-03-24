@@ -12,10 +12,10 @@
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "util/helpers/helpers.h"
 
-// Declaración externa necesaria para evitar el error de "undeclared identifier"
+// Declaración externa para el proceso de descompilación
 extern void _LatteDecompiler_Process(LatteDecompilerShaderContext* shaderContext, uint8* programData, uint32 programSize);
 
-// Inicialización única del contexto
+// Inicialización del contexto con tipos explícitos para Android
 void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const LatteDecompilerOptions& options, LatteDecompilerOutput_t* output, LatteConst::ShaderType shaderType, uint64 shaderBaseHash, uint32* contextRegisters)
 {
 	dCtx.output = output;
@@ -26,7 +26,7 @@ void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const Latte
 	dCtx.contextRegistersNew = (LatteContextRegister*)contextRegisters;
 	
 	if (output) {
-		output->shaderType = shaderType;
+		output->shaderType = static_cast<LatteConst::ShaderType>(shaderType);
 	}
 }
 
@@ -73,7 +73,6 @@ void LatteDecompiler_DecompilePixelShader(uint64 shaderBaseHash, uint32* context
 	shaderContext.shader = shader;
 	if (output) output->shader = shader;
 
-	// Inicialización de samplers para evitar ruido visual en texturas (Mali GPU)
 	for (int i = 0; i < 16; i++)
 	{
 		shader->textureUnitSamplerAssignment[i] = -1;
