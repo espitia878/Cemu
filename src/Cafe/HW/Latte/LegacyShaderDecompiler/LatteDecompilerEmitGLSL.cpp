@@ -18,16 +18,12 @@
 
 #define _CRLF	"\r\n"
 
-#define _CRLF	"\r\n"
-
-// --- BYPASS PARA XIAOMI 14T PRO ---
-// Esto reemplaza cada mención de 'm_is_vulkan' por 'true'
-// de forma invisible para el sistema de seguridad.
+// --- ARREGLO SKINS ZOMBIES (XIAOMI 14T PRO) ---
 #ifdef m_is_vulkan
 #undef m_is_vulkan
 #endif
 #define m_is_vulkan (true)
-// ----------------------------------
+// ----------------------------------------------
 
 
 
