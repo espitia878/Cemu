@@ -37,103 +37,40 @@ elseif(UNIX)
     add_compile_options(-Wno-multichar -Wno-invalid-offsetof -Wno-switch -Wno-ignored-attributes -Wno-deprecated-enum-enum-conversion)
 endif()
 
-add_compile_definitions(VK_NO_PROTOTYPES)
+set(OUTPUT_NAME "Cemu")
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
+# Lista de archivos fuente consolidada
+set(SOURCES
+	Main.cpp
+	# Hardware / Latte / Decompiler - Conexión de los nuevos módulos
+	Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompiler.cpp
+	Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerAnalyzer.cpp
+	Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerEmitGLSL.cpp
+	Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompilerRegisterDataTypeTracker.cpp
+)
 
-add_subdirectory(Common)
-add_subdirectory(gui)
-add_subdirectory(Cafe)
-add_subdirectory(Cemu)
-add_subdirectory(config)
-add_subdirectory(input)
-add_subdirectory(audio)
-add_subdirectory(util)
-add_subdirectory(imgui)
-add_subdirectory(resource)
+add_executable(CemuBin ${SOURCES})
 
-if(ANDROID)
-    add_library(CemuBin STATIC
-        main.cpp
-        mainLLE.cpp
-    )
-    add_subdirectory(android/app/src/main/cpp)
-else()
-	add_executable(CemuBin
-		main.cpp
-		mainLLE.cpp
-	)
-
-	if(MSVC AND MSVC_VERSION EQUAL 1940)
-		# workaround for an msvc issue on VS 17.10 where generated ILK files are too large
-		# see https://developercommunity.visualstudio.com/t/After-updating-to-VS-1710-the-size-of-/10665511
-		set_target_properties(CemuBin PROPERTIES LINK_FLAGS "/INCREMENTAL:NO")
-	endif()
-
-	if(WIN32)
-		target_sources(CemuBin PRIVATE
-		resource/cemu.rc
-	../dist/windows/cemu.manifest
-	)
-	endif()
-	set_property(TARGET CemuBin PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	set_property(TARGET CemuBin PROPERTY WIN32_EXECUTABLE $<NOT:$<CONFIG:Debug>>)
-	set(OUTPUT_NAME "Cemu_$<LOWER_CASE:$<CONFIG>>")
-endif()
-
-if (MACOS_BUNDLE)
-	set_property(TARGET CemuBin PROPERTY MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resource/MacOSXBundleInfo.plist.in")
-
-	set(RESOURCE_FILES "${CMAKE_SOURCE_DIR}/src/resource/cemu.icns")
-	target_sources(CemuBin PRIVATE "${RESOURCE_FILES}")
-
-	set(MACOSX_BUNDLE_ICON_FILE "cemu.icns")
-	set(MACOSX_BUNDLE_GUI_IDENTIFIER "info.cemu.Cemu")
-	set(MACOSX_BUNDLE_BUNDLE_NAME "Cemu")
-	set(MACOSX_BUNDLE_SHORT_VERSION_STRING "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH}")
-	set(MACOSX_BUNDLE_BUNDLE_VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH}")
-	set(MACOSX_BUNDLE_COPYRIGHT "Copyright © 2024 Cemu Project")
-
-	set(MACOSX_BUNDLE_CATEGORY "public.app-category.games")
- 	set(MACOSX_MINIMUM_SYSTEM_VERSION "12.0")
-  	set(MACOSX_BUNDLE_TYPE_EXTENSION "wua")
-
+if(APPLE)
 	set_target_properties(CemuBin PROPERTIES
-		MACOSX_BUNDLE true
-		RESOURCE "${RESOURCE_FILES}"
+		MACOSX_BUNDLE TRUE
+		MACOSX_BUNDLE_BUNDLE_NAME "${OUTPUT_NAME}"
+		MACOSX_BUNDLE_GUI_IDENTIFIER "info.cemu.Cemu"
+		MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+		MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/info.plist"
 	)
-
-	set(FOLDERS gameProfiles resources)
-	foreach(folder ${FOLDERS})
-		add_custom_command (TARGET CemuBin POST_BUILD
-			COMMAND ${CMAKE_COMMAND} ARGS -E copy_directory "${CMAKE_SOURCE_DIR}/bin/${folder}" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/SharedSupport/${folder}")
-	endforeach(folder)
-
-	if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-	    set(LIBUSB_PATH "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/debug/lib/libusb-1.0.0.dylib")
-	else()
-	    set(LIBUSB_PATH "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib/libusb-1.0.0.dylib")
-	endif()
-
-	if (EXISTS "/usr/local/lib/libMoltenVK.dylib")
-		set(MOLTENVK_PATH "/usr/local/lib/libMoltenVK.dylib")
-	elseif (EXISTS "/opt/homebrew/lib/libMoltenVK.dylib")
-		set(MOLTENVK_PATH "/opt/homebrew/lib/libMoltenVK.dylib")
-	else()
-		message(FATAL_ERROR "failed to find libMoltenVK.dylib")
-	endif ()
-
-	add_custom_command (TARGET CemuBin POST_BUILD
-		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${MOLTENVK_PATH}" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/Frameworks/libMoltenVK.dylib"
-		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${LIBUSB_PATH}" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/Frameworks/libusb-1.0.0.dylib"
-		COMMAND ${CMAKE_COMMAND} ARGS -E copy "${CMAKE_SOURCE_DIR}/src/resource/update.sh" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/MacOS/update.sh"
+	
+	# rpath for internal libraries
+	set_target_properties(CemuBin PROPERTIES INSTALL_RPATH "@executable_path/../Frameworks")
+	
+	add_custom_command(TARGET CemuBin POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/bin/resources/update.sh" "${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/MacOS/update.sh"
 		COMMAND bash -c "install_name_tool -add_rpath @executable_path/../Frameworks ${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/MacOS/${OUTPUT_NAME}"
 		COMMAND bash -c "install_name_tool -change ${LIBUSB_PATH} @executable_path/../Frameworks/libusb-1.0.0.dylib ${CMAKE_SOURCE_DIR}/bin/${OUTPUT_NAME}.app/Contents/MacOS/${OUTPUT_NAME}")
 endif()
 
 set_target_properties(CemuBin PROPERTIES
-	# multi-configuration generators will add a config subdirectory to RUNTIME_OUTPUT_DIRECTORY if no generator expression is used
-	# to get the same behavior everywhere we append an empty generator expression
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bin/$<1:>"
 	OUTPUT_NAME "${OUTPUT_NAME}"
 )
@@ -154,14 +91,5 @@ if(ENABLE_SDL)
 endif()
 
 if(UNIX AND NOT APPLE)
-	# due to nasm output some linkers will make stack executable
-	# cemu does not require this so we explicity disable it
 	target_link_options(CemuBin PRIVATE -z noexecstack)
-	# some residual debug info from boost/discord-rpc is normally included
-	# most likely not helpful in debugging problems with cemu code
-	target_link_options(CemuBin PRIVATE "$<$<CONFIG:Release>:-Xlinker;--strip-debug>")
-endif()
-
-if (BSD)
-	target_link_libraries(CemuBin PRIVATE execinfo SPIRV-Tools SPIRV-Tools-opt)
 endif()
