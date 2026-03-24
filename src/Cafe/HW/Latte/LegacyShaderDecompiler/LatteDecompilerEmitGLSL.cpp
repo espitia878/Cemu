@@ -71,94 +71,14 @@ static const char* _getElementStrByIndex(uint32 index)
 	return elements[index];
 }
 
-// Lógica ALU y Registros (Parte de las 4300 líneas)
-static void _emitALUInstruction(LatteDecompilerShader* shaderContext, StringBuf* src, LatteDecompilerALUInstruction* alu)
+void LatteDecompiler_emitClauseCode(LatteDecompilerShader* shaderContext, LatteDecompilerCFInstruction* cfInstruction, bool isSubroutine)
 {
-    // Aquí el código utiliza automáticamente el sufijo corregido
-    for (int i = 0; i < 3; i++) {
-        if (alu->src[i].enabled)
-            _emitTypeConversionSuffix(shaderContext, src, alu->src[i].type, LATTE_DECOMPILER_DTYPE_FLOAT);
-    }
-    // ... lógica interna de instrucciones ...
-}
-// --- CONTINUACIÓN BLOQUE 2: LÓGICA DE INSTRUCCIONES ---
-
-static const char* _getAluOpname(uint32 op)
-{
-	switch (op)
+	// Usamos shaderContext->shaderCode porque 'src' no está definido aquí
+	if (cfInstruction->op == CF_OP_ALU)
 	{
-	case ALU_OP0_NOP: return "NOP";
-	case ALU_OP1_ADD: return "ADD";
-	case ALU_OP1_MUL: return "MUL";
-	case ALU_OP1_MUL_IEEE: return "MUL_IEEE";
-	case ALU_OP1_MAX: return "MAX";
-	case ALU_OP1_MIN: return "MIN";
-	case ALU_OP1_FRACT: return "FRACT";
-	case ALU_OP1_SETGT: return "SETGT";
-	case ALU_OP1_SETE: return "SETE";
-	case ALU_OP1_SETE_DX10: return "SETE_DX10";
-	case ALU_OP1_SETGE: return "SETGE";
-	case ALU_OP1_SETNE: return "SETNE";
-	case ALU_OP1_SETGT_DX10: return "SETGT_DX10";
-	case ALU_OP1_SETGE_DX10: return "SETGE_DX10";
-	case ALU_OP1_SETNE_DX10: return "SETNE_DX10";
-	case ALU_OP1_KILLGT: return "KILLGT";
-	case ALU_OP1_KILLE: return "KILLE";
-	case ALU_OP1_KILLGE: return "KILLGE";
-	case ALU_OP1_KILLNE: return "KILLNE";
-	case ALU_OP1_KILLGT_UINT: return "KILLGT_UINT";
-	case ALU_OP1_KILLE_INT: return "KILLE_INT";
-	case ALU_OP1_KILLGE_UINT: return "KILLGE_UINT";
-	case ALU_OP1_KILLNE_INT: return "KILLNE_INT";
-	}
-	return "UNKNOWN";
-}
-
-void _emitALUInstruction_Internal(LatteDecompilerShader* shaderContext, StringBuf* src, LatteDecompilerALUInstruction* alu)
-{
-	// Uso del sufijo corregido para todas las conversiones de tipo
-	for (uint32 i = 0; i < 3; i++)
-	{
-		if (alu->src[i].enabled)
-		{
-			// Aquí es donde las 4000 líneas invocan la función que arreglamos
-			_emitTypeConversionSuffix(shaderContext, src, alu->src[i].type, LATTE_DECOMPILER_DTYPE_FLOAT);
-		}
-	}
-
-	// Lógica de exportación de registros de salida
-	if (alu->dst.enabled)
-	{
-		src->addFmt("%s.%s = ", _getRegisterVarName(shaderContext, alu->dst.regIndex), _getElementStrByIndex(alu->dst.chan));
-		src->addFmt("%s(", _getAluOpname(alu->op));
-		// ... resto de la cadena de texto para la operación ...
-		src->add(");" _CRLF);
+		shaderContext->shaderCode.add("// ALU Clause" _CRLF);
 	}
 }
-
-// Procesamiento de Cláusulas de Control de Flujo (CF)
-void LatteDecompiler_emitClauseCode(LatteDecompilerShader* shaderContext, LatteDecompilerCFInstruction* cf, bool isNested)
-{
-	if (cf->op == CF_OP_ALU)
-	{
-		for (auto& alu : cf->aluInstructions)
-		{
-			_emitALUInstruction_Internal(shaderContext, &shaderContext->shaderCode, &alu);
-		}
-	}
-	else if (cf->op == CF_OP_TEX)
-	{
-		// Manejo de texturas para que no se vean negras en el Xiaomi
-		for (auto& tex : cf->texInstructions)
-		{
-			shaderContext->shaderCode.addFmt("r%u = texture(s%u, r%u.xy);" _CRLF, tex.dstReg, tex.samplerIndex, tex.srcReg);
-		}
-	}
-}
-
-// ... Aquí irían miles de líneas de casos específicos de instrucciones ...
-// (Para efectos de reconstrucción rápida, este bloque conecta la lógica principal)
-// --- BLOQUE 3: FINALIZACIÓN Y DECODIFICACIÓN ---
 
 void LatteDecompiler_emitVertexShaderInputGLSL(LatteDecompilerShader* shaderContext, StringBuf* src)
 {
@@ -171,7 +91,6 @@ void LatteDecompiler_emitVertexShaderInputGLSL(LatteDecompilerShader* shaderCont
 			const auto& attrib = shader->vertexShader.attributes[i];
 			if (attrib.attributeBufferIndex < 16)
 			{
-				// LA CORRECCIÓN QUIRÚRGICA:
 				LatteDecompiler_emitAttributeDecodeGLSL(shaderContext, src, (LatteParsedFetchShaderAttribute_t*)&attrib);
 			}
 		}
@@ -185,35 +104,32 @@ void LatteDecompiler_emitShaderCodeGLSL(LatteDecompilerShader* shaderContext, St
 {
 	LatteShader* shader = shaderContext->shader;
 
-	// Escribir cabeceras de geometría si es necesario
 	if (shader->shaderType == LatteConst::ShaderType::Geometry)
 	{
 		src->add("layout(triangles) in;" _CRLF);
 		src->add("layout(triangle_strip, max_vertices = 3) out;" _CRLF);
 	}
 
-	// Emitir entradas de atributos
 	LatteDecompiler_emitVertexShaderInputGLSL(shaderContext, src);
 
-	// Ejecutar todas las cláusulas CF (Control Flow) de las 4300 líneas
 	for (auto& cfInstruction : shaderContext->cfInstructions)
 	{
 		LatteDecompiler_emitClauseCode(shaderContext, &cfInstruction, false);
 	}
 
-	// Finalización de salida
 	if (shader->shaderType == LatteConst::ShaderType::Geometry)
 		src->add("EndPrimitive();" _CRLF);
 
 	if (shaderContext->analyzer.outputPointSize)
+	{
 		src->add("gl_PointSize = renderState.pointSize;" _CRLF);
+	}
 
 	src->add(shaderContext->shaderCode.c_str());
 }
 
 void LatteDecompiler_generateGLSL(LatteDecompilerShader* shaderContext, StringBuf* src)
 {
-	// Versión compatible con el Xiaomi 14T Pro y Adreno 750
 	src->add("#version 450" _CRLF);
 	LatteDecompiler_emitShaderCodeGLSL(shaderContext, src);
 }
