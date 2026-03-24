@@ -13,21 +13,22 @@
 #include "util/helpers/helpers.h"
 #include <cstring>
 
-// Declaración externa obligatoria
+// Declaración de la función externa de procesamiento
 extern void _LatteDecompiler_Process(LatteDecompilerShaderContext* shaderContext, uint8* programData, uint32 programSize);
 
 void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const LatteDecompilerOptions& options, LatteDecompilerOutput_t* output, LatteConst::ShaderType shaderType, uint64 shaderBaseHash, uint32* contextRegisters)
 {
-	// Limpieza total de la estructura para evitar basura en memoria
+	// Limpieza total de la estructura según el tamaño definido en LatteDecompilerInternal.h
 	memset(&dCtx, 0, sizeof(LatteDecompilerShaderContext));
 	
 	dCtx.output = output;
+	dCtx.shaderType = shaderType; // Este campo SÍ existe en tu LatteDecompilerInternal.h
 	dCtx.options = &options;
 	dCtx.shaderBaseHash = shaderBaseHash;
 	dCtx.contextRegisters = contextRegisters;
 	dCtx.contextRegistersNew = (LatteContextRegister*)contextRegisters;
 	
-	// Nota: Se eliminaron dCtx.shaderType y output->shader porque no existen en tus archivos .h
+	// NOTA: No tocamos output->shader porque tu LatteDecompiler.h muestra que la estructura está vacía.
 }
 
 bool LatteDecompiler_ParseCFInstruction(LatteDecompilerShaderContext* shaderContext, uint32 cfIndex, uint32 cfWord0, uint32 cfWord1, bool* endOfProgram, std::vector<LatteDecompilerCFInstruction>& instructionList)
