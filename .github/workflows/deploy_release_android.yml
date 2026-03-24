@@ -13,16 +13,9 @@ on:
         type: string
         default: "0"
 
-env:
-  VCPKG_ROOT: "${{github.workspace}}/dependencies/vcpkg"
-  VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
-  VCPKG_FORCE_DOWNLOADED_BINARIES: true
-
 jobs:
   deploy:
-    name: Deploy experimental release
     runs-on: ubuntu-24.04
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -35,70 +28,36 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: gradle
 
-      - name: Install system dependencies
+      - name: Install Dependencies
         run: |
           sudo apt update -qq
           sudo apt install -y gettext mono-complete ninja-build cmake
 
-      - name: Uncompile message catalogs
-        run: |
-          for mo_file in bin/resources/*/cemu.mo
-          do
-            language_code=$(basename $(dirname $mo_file))
-            # Ruta corregida sin 'src/'
-            po_file=android/app/src/main/assets/translations/$language_code/cemu.po
-            mkdir -p $(dirname $po_file)
-            msgunfmt $mo_file -o $po_file || echo "Skipping $mo_file"
-          done
-
-      - name: Setup vcpkg binary cache
-        uses: ./.github/actions/set-up-vcpkg-binary-cache-action
-        with:
-          vcpkg-root: ${{ env.VCPKG_ROOT }}
-          vcpkg-binary-sources: ${{ env.VCPKG_BINARY_SOURCES }}
-
       - name: Build Cemu
-        env:
-          ANDROID_STORE_FILE_BASE64: ${{ secrets.ANDROID_STORE_FILE_BASE64 }}
-          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          EMULATOR_VERSION_MAJOR: ${{ inputs.version_major }}
-          EMULATOR_VERSION_MINOR: ${{ inputs.version_minor }}
         run: |
-          # Entrar a la carpeta donde está el proyecto Android
-          cd ./android
-
-          # Forzar limpieza para que CMake no use archivos corruptos
+          # 1. Encontrar la carpeta de Android dinámicamente
+          DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
+          echo "Carpeta de Android detectada en: $DIR"
+          cd "$DIR"
+          
+          # 2. Limpiar y dar permisos
+          chmod +x gradlew
           ./gradlew clean
 
-          if [[ -n "$ANDROID_STORE_FILE_BASE64" ]]; then
-            base64 --decode <<< "${ANDROID_STORE_FILE_BASE64}" > store.jks
-            export ANDROID_STORE_FILE=$(pwd)/store.jks
-          fi
+          # 3. Compilación con reporte de errores máximo
+          ./gradlew assembleRelease --stacktrace --info
 
-          chmod +x gradlew
-          # Ejecutar compilación con log detallado de errores
-          ./gradlew assembleRelease --stacktrace
-
-      - name: Create release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release Artifacts
+        if: success()
         run: |
           VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
           mkdir -p upload
+          # Busca el APK generado en cualquier rincón y lo mueve a la carpeta de subida
+          find . -name "*.apk" -exec mv {} upload/Cemu-$VERSION.apk \;
           
-          # Buscar el APK en cualquier subcarpeta y moverlo
-          find android/app/build/outputs/apk/ -name "*.apk" -exec mv {} upload/Cemu-$VERSION.apk \;
-          
-          if [ -z "$(ls -A upload)" ]; then
-             echo "ERROR: El APK no se generó. Revisa el log de Build Cemu."
-             exit 1
-          fi
-
+          # Herramienta para crear el link de descarga en GitHub
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz
           tar xvzf ghr.tar.gz; rm ghr.tar.gz
-          ./ghr -u ${{ github.repository_owner }} -r ${{ github.event.repository.name }} -token $GITHUB_TOKEN v$VERSION upload/
+          ./ghr -u ${{ github.repository_owner }} -r ${{ github.event.repository.name }} -token ${{ secrets.GITHUB_TOKEN }} v$VERSION upload/
           
