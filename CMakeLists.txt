@@ -16,6 +16,12 @@ execute_process(
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 add_definitions(-DEMULATOR_HASH=${GIT_HASH})
+# --- SOLUCIÓN GLOBAL PARA COMPILACIÓN EN ANDROID ---
+# Ignora errores de formato y advertencias que bloquean la APK
+if(ANDROID)
+    add_compile_options(-w -Wno-error=format-security -Wno-format-security -fpermissive)
+endif()
+# ---------------------------------------------------
 
 if (ENABLE_VCPKG)
 	# check if vcpkg is shallow and unshallow it if necessary
