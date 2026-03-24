@@ -13,14 +13,13 @@
 #include "util/helpers/helpers.h"
 #include <cstring>
 
-// No usamos extern "C" ni guiones bajos, usamos las firmas exactas de tus .cpp
+// Declaración de funciones externas (Firma exacta de tus .cpp)
 void LatteDecompiler_analyze(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
 void LatteDecompiler_emitGLSLShader(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
 
 void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const LatteDecompilerOptions& options, LatteDecompilerOutput_t* output, LatteConst::ShaderType shaderType, uint64 shaderBaseHash, uint32* contextRegisters)
 {
     memset(&dCtx, 0, sizeof(LatteDecompilerShaderContext));
-    
     dCtx.output = output;
     dCtx.shaderType = shaderType;
     dCtx.options = &options;
@@ -31,13 +30,13 @@ void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const Latte
 
 static void _LatteDecompiler_DoWork(LatteDecompilerShaderContext* shaderContext, uint8* programData, uint32 programSize)
 {
-    // Creamos el objeto shader con la estructura que vimos en LatteShader.h
     LatteDecompilerShader shader{}; 
     shader.programCode = programData;
     shader.programSize = programSize;
-    shader.shaderType = shaderContext->shaderType;
+    
+    // CORRECCIÓN CLAVE: Convertimos el enum a uint32 para evitar el error del log 17:48
+    shader.shaderType = (uint32)shaderContext->shaderType;
 
-    // Llamamos a las funciones de tus otros archivos .cpp
     LatteDecompiler_analyze(shaderContext, &shader);
     LatteDecompiler_emitGLSLShader(shaderContext, &shader);
 }
