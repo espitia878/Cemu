@@ -19,8 +19,10 @@
 #define _CRLF	"\r\n"
 
 // --- NUEVO PUENTE PARA LA VARIABLE GLOBAL ---
+// Ya no usamos 'shaderContext->' porque la variable es global
 #define m_is_vulkan (g_is_vulkan_android)
 // --------------------------------------------
+
 
 
 void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShaderContext* shaderContext, StringBuf* src, LatteParsedFetchShaderAttribute_t* attrib);
