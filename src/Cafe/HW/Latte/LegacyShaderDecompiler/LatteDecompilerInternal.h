@@ -5,11 +5,6 @@
 #include <bitset>
 #include "Cafe/HW/Latte/Core/LatteConst.h"
 
-// --- VARIABLE PARA XIAOMI 14T PRO ---
-// 'extern' le dice al compilador: "esta variable existe en otro lado, no te preocupes"
-extern bool g_is_vulkan_android;
-// ------------------------------------
-
 struct LatteDecompilerShaderContext
 {
 	struct LatteDecompilerOutput_t* output;
