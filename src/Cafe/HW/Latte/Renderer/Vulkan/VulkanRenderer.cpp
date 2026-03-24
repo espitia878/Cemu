@@ -2678,30 +2678,16 @@ void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isD
 				formatInfoOut->decoder = TextureDecoder_BC4_To_R8::getInstance();
 			}
 			break;
-		case Latte::E_GX2SURFFMT::BC5_UNORM:
-			if (m_supportedFormatInfo.fmt_bc5)
-			{
-				formatInfoOut->vkImageFormat = VK_FORMAT_BC5_UNORM_BLOCK;
-				formatInfoOut->decoder = TextureDecoder_BC5::getInstance();
-			}
-			else
-			{
-				formatInfoOut->vkImageFormat = VK_FORMAT_R8G8_UNORM;
-				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8<decodeBC5Block_UNORM>::getInstance();
-			}
+				case Latte::E_GX2SURFFMT::BC5_UNORM:
+			// FIX PARA MEDIATEK: Forzamos el decoder interno para que los zombies sean visibles.
+			formatInfoOut->vkImageFormat = VK_FORMAT_R8G8_UNORM;
+			formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8<decodeBC5Block_UNORM>::getInstance();
 			break;
 		case Latte::E_GX2SURFFMT::BC5_SNORM:
-			if (m_supportedFormatInfo.fmt_bc5)
-			{
-				formatInfoOut->vkImageFormat = VK_FORMAT_BC5_SNORM_BLOCK;
-				formatInfoOut->decoder = TextureDecoder_BC5::getInstance();
-			}
-			else
-			{
-				formatInfoOut->vkImageFormat = VK_FORMAT_R8G8_SNORM;
-				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8<decodeBC5Block_SNORM>::getInstance();
-			}
+			formatInfoOut->vkImageFormat = VK_FORMAT_R8G8_SNORM;
+			formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8<decodeBC5Block_SNORM>::getInstance();
 			break;
+			
 		case Latte::E_GX2SURFFMT::R24_X8_UNORM:
 			formatInfoOut->vkImageFormat = VK_FORMAT_R32_SFLOAT;
 			formatInfoOut->decoder = TextureDecoder_R24_X8::getInstance();
