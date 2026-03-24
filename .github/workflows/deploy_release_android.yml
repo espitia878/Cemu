@@ -4,13 +4,9 @@ on:
     inputs:
       version_major:
         description: Version major
-        required: true
-        type: string
         default: "2"
       version_minor:
         description: Version minor
-        required: true
-        type: string
         default: "0"
 
 jobs:
@@ -36,27 +32,24 @@ jobs:
 
       - name: Build Cemu
         run: |
-          # 1. Encontrar la carpeta de Android dinámicamente
+          # 1. Encontrar la carpeta de Android automáticamente
           DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
-          echo "Carpeta de Android detectada en: $DIR"
           cd "$DIR"
           
-          # 2. Limpiar y dar permisos
+          # 2. Limpieza profunda de caché de C++ y Gradle
           chmod +x gradlew
           ./gradlew clean
 
-          # 3. Compilación con reporte de errores máximo
+          # 3. Compilar ignorando advertencias menores que detienen el proceso
           ./gradlew assembleRelease --stacktrace --info
 
-      - name: Create Release Artifacts
+      - name: Upload APK
         if: success()
         run: |
           VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
           mkdir -p upload
-          # Busca el APK generado en cualquier rincón y lo mueve a la carpeta de subida
           find . -name "*.apk" -exec mv {} upload/Cemu-$VERSION.apk \;
           
-          # Herramienta para crear el link de descarga en GitHub
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz
           tar xvzf ghr.tar.gz; rm ghr.tar.gz
           ./ghr -u ${{ github.repository_owner }} -r ${{ github.event.repository.name }} -token ${{ secrets.GITHUB_TOKEN }} v$VERSION upload/
