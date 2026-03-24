@@ -1090,8 +1090,11 @@ void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const Latte
 	dCtx.contextRegisters = contextRegisters;
 	dCtx.contextRegistersNew = (LatteContextRegister*)contextRegisters;
 	output->shaderType = shaderType;
-    // La variable writesPointSize fue eliminada para compatibilidad con Android
+	
+	// Limpieza de variables obsoletas para evitar errores de compilación
+	// Se eliminan dCtx.analyzer.outputPointSize y dCtx.analyzer.writesPointSize
 }
+
 
 
 void LatteDecompiler_DecompileVertexShader(uint64 shaderBaseHash, uint32* contextRegisters, uint8* programData, uint32 programSize, struct LatteFetchShader* fetchShader, LatteDecompilerOptions& options, LatteDecompilerOutput_t* output)
