@@ -12,6 +12,9 @@
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "util/helpers/helpers.h"
 
+// Declaración externa necesaria para evitar el error de "undeclared identifier"
+extern void _LatteDecompiler_Process(LatteDecompilerShaderContext* shaderContext, uint8* programData, uint32 programSize);
+
 // Inicialización única del contexto
 void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const LatteDecompilerOptions& options, LatteDecompilerOutput_t* output, LatteConst::ShaderType shaderType, uint64 shaderBaseHash, uint32* contextRegisters)
 {
@@ -35,7 +38,7 @@ bool LatteDecompiler_ParseCFInstruction(LatteDecompilerShaderContext* shaderCont
 void LatteDecompiler_DecompileVertexShader(uint64 shaderBaseHash, uint32* contextRegisters, uint8* programData, uint32 programSize, struct LatteFetchShader* fetchShader, LatteDecompilerOptions& options, LatteDecompilerOutput_t* output)
 {
 	performanceMonitor.gpuTime_shaderCreate.beginMeasuring();
-	LatteDecompilerShaderContext shaderContext = { 0 };
+	LatteDecompilerShaderContext shaderContext = {};
 	LatteDecompiler_InitContext(shaderContext, options, output, LatteConst::ShaderType::Vertex, shaderBaseHash, contextRegisters);
 	
 	LatteDecompilerShader* shader = new LatteDecompilerShader(LatteConst::ShaderType::Vertex);
@@ -49,7 +52,7 @@ void LatteDecompiler_DecompileVertexShader(uint64 shaderBaseHash, uint32* contex
 void LatteDecompiler_DecompileGeometryShader(uint64 shaderBaseHash, uint32* contextRegisters, uint8* programData, uint32 programSize, uint8* gsCopyProgramData, uint32 gsCopyProgramSize, uint32 vsRingParameterCount, LatteDecompilerOptions& options, LatteDecompilerOutput_t* output)
 {
 	performanceMonitor.gpuTime_shaderCreate.beginMeasuring();
-	LatteDecompilerShaderContext shaderContext = { 0 };
+	LatteDecompilerShaderContext shaderContext = {};
 	LatteDecompiler_InitContext(shaderContext, options, output, LatteConst::ShaderType::Geometry, shaderBaseHash, contextRegisters);
 	
 	LatteDecompilerShader* shader = new LatteDecompilerShader(LatteConst::ShaderType::Geometry);
@@ -63,14 +66,15 @@ void LatteDecompiler_DecompileGeometryShader(uint64 shaderBaseHash, uint32* cont
 void LatteDecompiler_DecompilePixelShader(uint64 shaderBaseHash, uint32* contextRegisters, uint8* programData, uint32 programSize, LatteDecompilerOptions& options, LatteDecompilerOutput_t* output)
 {
 	performanceMonitor.gpuTime_shaderCreate.beginMeasuring();
-	LatteDecompilerShaderContext shaderContext = { 0 };
+	LatteDecompilerShaderContext shaderContext = {};
 	LatteDecompiler_InitContext(shaderContext, options, output, LatteConst::ShaderType::Pixel, shaderBaseHash, contextRegisters);
 	
 	LatteDecompilerShader* shader = new LatteDecompilerShader(LatteConst::ShaderType::Pixel);
 	shaderContext.shader = shader;
 	if (output) output->shader = shader;
 
-	for (sint32 i = 0; i < 16; i++)
+	// Inicialización de samplers para evitar ruido visual en texturas (Mali GPU)
+	for (int i = 0; i < 16; i++)
 	{
 		shader->textureUnitSamplerAssignment[i] = -1;
 		shader->textureUsesDepthCompare[i] = false;
