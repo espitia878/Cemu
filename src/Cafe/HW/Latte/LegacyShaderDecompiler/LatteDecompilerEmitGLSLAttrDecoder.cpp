@@ -94,8 +94,7 @@ void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContex
 			_readLittleEndianAttributeU32x1(shaderContext, src, attributeInputIndex);
 		else
 		{
-			// CORRECCIÓN: Bypass de seguridad
-			cemu_assert_debug("Little endian format bypass");
+			cemu_assert_debug("Little endian bypass");
 		}
 	}
 	else if (attrib->endian == ENDIAN_BIG || attrib->endian == ENDIAN_8IN32)
@@ -142,8 +141,7 @@ void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContex
 		}
 		else
 		{
-			// CORRECCIÓN: Bypass de seguridad
-			cemu_assert_debug("Big endian format bypass");
+			cemu_assert_debug("Big endian bypass");
 		}
 	}
 }
