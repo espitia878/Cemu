@@ -13,7 +13,7 @@
 #include "util/helpers/helpers.h"
 #include <cstring>
 
-// Declaramos las funciones como parte del proyecto para que el linker las busque
+// Declaraciones directas para el Linker
 void LatteDecompiler_analyze(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
 void LatteDecompiler_emitGLSLShader(LatteDecompilerShaderContext* shaderContext, LatteDecompilerShader* shader);
 
@@ -35,7 +35,6 @@ static void _LatteDecompiler_DoWork(LatteDecompilerShaderContext* shaderContext,
     shader.programSize = programSize;
     shader.shaderType = (uint32)shaderContext->shaderType;
 
-    // Llamada directa a las funciones de los .cpp vecinos
     LatteDecompiler_analyze(shaderContext, &shader);
     LatteDecompiler_emitGLSLShader(shaderContext, &shader);
 }
