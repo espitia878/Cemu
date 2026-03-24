@@ -31,24 +31,12 @@ jobs:
         with:
           ndk-version: r26b
 
-      - name: Install Build Tools
+      - name: Install Build Tools & Missing Libraries
         run: |
           sudo apt update -qq
-          sudo apt install -y gettext mono-complete ninja-build cmake
-          # VERIFICACIÓN: Confirmar herramientas para el log
+          # AÑADIDO: libusb-1.0-0-dev para solucionar el error fatal de CMake
+          sudo apt install -y gettext mono-complete ninja-build cmake libusb-1.0-0-dev pkg-config
           cmake --version
-          ninja --version
-
-      - name: Pre-Build Inspection (The "Sniffer")
-        run: |
-          echo "--- BUSCANDO ARCHIVOS CRÍTICOS ---"
-          # Localiza el archivo del parche y verifica si el código está ahí
-          VULKAN_FILE=$(find . -name "VulkanRenderer.cpp")
-          echo "VulkanRenderer.cpp encontrado en: $VULKAN_FILE"
-          if [ -z "$VULKAN_FILE" ]; then echo "ERROR: Archivo C++ no encontrado"; exit 1; fi
-          
-          # Verifica si el parche BC5 está aplicado antes de compilar
-          grep -n "BC5_UNORM" "$VULKAN_FILE" || echo "ADVERTENCIA: Parche no detectado en el archivo"
 
       - name: Build Cemu (Deep Diagnostic Mode)
         run: |
@@ -56,22 +44,10 @@ jobs:
           cd "$ANDROID_PATH"
           chmod +x gradlew
           
-          # Limpieza total: Borrar rastros de compilaciones fallidas anteriores
           ./gradlew clean
-          rm -rf .gradle .cxx app/.cxx app/build
+          rm -rf .externalNativeBuild .cxx app/.cxx app/build
           
-          # COMPILACIÓN CON SENSORES ACTIVOS
-          # -Pandroid.display_cxx_logs=true: Obliga a CMake a mostrar errores de C++
-          # --stacktrace: Muestra dónde se rompe la cadena de comandos
           ./gradlew assembleRelease --stacktrace --info -Pandroid.display_cxx_logs=true
-
-      - name: Post-Mortem Debug
-        if: always() # Se ejecuta aunque falle para ver qué se alcanzó a crear
-        run: |
-          echo "--- ESTADO FINAL DEL PROYECTO ---"
-          find . -name "*.apk" || echo "No se generó el APK"
-          # Listar errores específicos de CMake si existen
-          find . -name "cmake_libs_outputs" -type d || echo "No hay salida de librerías nativas"
 
       - name: Upload Artifact
         if: success()
