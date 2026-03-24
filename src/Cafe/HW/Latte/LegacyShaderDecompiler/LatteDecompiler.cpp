@@ -11,13 +11,14 @@
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "util/helpers/helpers.h"
+#include <cstring>
 
-// Forzar la visibilidad de la función externa
+// Declaración de la función de proceso (debe coincidir con LatteDecompilerInternal.h)
 extern void _LatteDecompiler_Process(LatteDecompilerShaderContext* shaderContext, uint8* programData, uint32 programSize);
 
+// Inicialización del contexto ajustada a tus headers reales
 void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const LatteDecompilerOptions& options, LatteDecompilerOutput_t* output, LatteConst::ShaderType shaderType, uint64 shaderBaseHash, uint32* contextRegisters)
 {
-	// Inicializar a cero manualmente para evitar basura en memoria
 	memset(&dCtx, 0, sizeof(LatteDecompilerShaderContext));
 	
 	dCtx.output = output;
@@ -26,11 +27,7 @@ void LatteDecompiler_InitContext(LatteDecompilerShaderContext& dCtx, const Latte
 	dCtx.shaderBaseHash = shaderBaseHash;
 	dCtx.contextRegisters = contextRegisters;
 	dCtx.contextRegistersNew = (LatteContextRegister*)contextRegisters;
-	
-	if (output) {
-		output->shaderType = shaderType;
-		output->shader = nullptr;
-	}
+	// dCtx.shader y output->shaderType se eliminaron porque NO existen en tus archivos .h
 }
 
 bool LatteDecompiler_ParseCFInstruction(LatteDecompilerShaderContext* shaderContext, uint32 cfIndex, uint32 cfWord0, uint32 cfWord1, bool* endOfProgram, std::vector<LatteDecompilerCFInstruction>& instructionList)
@@ -44,10 +41,7 @@ void LatteDecompiler_DecompileVertexShader(uint64 shaderBaseHash, uint32* contex
 	LatteDecompilerShaderContext shaderContext;
 	LatteDecompiler_InitContext(shaderContext, options, output, LatteConst::ShaderType::Vertex, shaderBaseHash, contextRegisters);
 	
-	LatteDecompilerShader* shader = new LatteDecompilerShader(LatteConst::ShaderType::Vertex);
-	shaderContext.shader = shader;
-	if (output) output->shader = shader;
-
+	// Solo procesamos si el contexto está listo
 	_LatteDecompiler_Process(&shaderContext, programData, programSize);
 	performanceMonitor.gpuTime_shaderCreate.endMeasuring();
 }
@@ -58,10 +52,6 @@ void LatteDecompiler_DecompileGeometryShader(uint64 shaderBaseHash, uint32* cont
 	LatteDecompilerShaderContext shaderContext;
 	LatteDecompiler_InitContext(shaderContext, options, output, LatteConst::ShaderType::Geometry, shaderBaseHash, contextRegisters);
 	
-	LatteDecompilerShader* shader = new LatteDecompilerShader(LatteConst::ShaderType::Geometry);
-	shaderContext.shader = shader;
-	if (output) output->shader = shader;
-
 	_LatteDecompiler_Process(&shaderContext, programData, programSize);
 	performanceMonitor.gpuTime_shaderCreate.endMeasuring();
 }
@@ -72,10 +62,6 @@ void LatteDecompiler_DecompilePixelShader(uint64 shaderBaseHash, uint32* context
 	LatteDecompilerShaderContext shaderContext;
 	LatteDecompiler_InitContext(shaderContext, options, output, LatteConst::ShaderType::Pixel, shaderBaseHash, contextRegisters);
 	
-	LatteDecompilerShader* shader = new LatteDecompilerShader(LatteConst::ShaderType::Pixel);
-	shaderContext.shader = shader;
-	if (output) output->shader = shader;
-
 	_LatteDecompiler_Process(&shaderContext, programData, programSize);
 	performanceMonitor.gpuTime_shaderCreate.endMeasuring();
 }
