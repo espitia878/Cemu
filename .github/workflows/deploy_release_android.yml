@@ -24,6 +24,7 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: gradle
 
       - name: Install Dependencies
         run: |
@@ -32,16 +33,17 @@ jobs:
 
       - name: Build Cemu
         run: |
-          # 1. Encontrar la carpeta de Android dinámicamente
+          # 1. Localizar carpeta android sin errores de ruta
           DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           cd "$DIR"
           
-          # 2. LIMPIEZA TOTAL: Borra cachés corruptas de CMake y Gradle
+          # 2. Limpieza agresiva de archivos temporales
           chmod +x gradlew
+          rm -rf .gradle .cxx app/.cxx app/build
           ./gradlew clean
 
-          # 3. COMPILACIÓN: Con reporte máximo de errores
-          ./gradlew assembleRelease --stacktrace --info
+          # 3. Compilación con máxima visibilidad de errores (Modo Pro)
+          ./gradlew assembleRelease --stacktrace --info -Pandroid.display_cxx_logs=true
 
       - name: Create Release
         if: success()
