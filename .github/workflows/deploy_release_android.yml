@@ -4,12 +4,14 @@ on:
     inputs:
       version_major:
         description: Version major
-        required: false
+        required: true
         type: string
+        default: "2"
       version_minor:
         description: Version minor
-        required: false
+        required: true
         type: string
+        default: "0"
 
 env:
   VCPKG_ROOT: "${{github.workspace}}/dependencies/vcpkg"
@@ -37,54 +39,52 @@ jobs:
         run: |
           for mo_file in bin/resources/*/cemu.mo
           do
-            echo $mo_file
             language_code=$(basename $(dirname $mo_file))
-            po_file=src/android/app/src/main/assets/translations/$language_code/cemu.po
+            # Ruta corregida para la estructura de carpeta raíz /android
+            po_file=android/app/src/main/assets/translations/$language_code/cemu.po
             mkdir -p $(dirname $po_file)
-            msgunfmt $mo_file -o $po_file || echo "Failed to uncompile message catalog from $mo_file"
+            msgunfmt $mo_file -o $po_file || echo "Skipping $mo_file"
           done
 
       - name: Setup vcpkg binary cache
         uses: ./.github/actions/set-up-vcpkg-binary-cache-action
         with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          vcpkg-root: ${{ env.VCPKG_ROOT }}
+          vcpkg-binary-sources: ${{ env.VCPKG_BINARY_SOURCES }}
 
       - name: Build Cemu
         env:
           ANDROID_STORE_FILE_BASE64: ${{ secrets.ANDROID_STORE_FILE_BASE64 }}
-          ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           EMULATOR_VERSION_MAJOR: ${{ inputs.version_major }}
           EMULATOR_VERSION_MINOR: ${{ inputs.version_minor }}
         run: |
           export JAVA_HOME=$JAVA_HOME_21_X64
-
-          cd ./src/android
+          
+          # Entrar a la carpeta raíz de android
+          cd ./android
 
           if [[ -n "$ANDROID_STORE_FILE_BASE64" ]]; then
             base64 --decode <<< "${ANDROID_STORE_FILE_BASE64}" > store.jks
             export ANDROID_STORE_FILE=$(pwd)/store.jks
-            echo "Android signing store file has been set up."
-          else
-            echo "No Android signing store file provided. The APK will not be signed with a release key."
           fi
 
+          chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: Set version dependent vars
-        env:
-          EMULATOR_VERSION_MAJOR: ${{ inputs.version_major }}
-          EMULATOR_VERSION_MINOR: ${{ inputs.version_minor }}
-        run: |
-          echo "CEMU_VERSION=$EMULATOR_VERSION_MAJOR.$EMULATOR_VERSION_MINOR" >> $GITHUB_ENV
-
       - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=${{ env.CEMU_VERSION }}
-          mkdir upload
-          mv ./src/android/app/build/outputs/apk/*/*.apk upload/Cemu-$VERSION.apk
+          VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
+          mkdir -p upload
+          
+          # Busca el APK generado en la nueva ruta
+          find android/app/build/outputs/apk/release/ -name "*.apk" -exec mv {} upload/Cemu-$VERSION.apk \;
+          
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz
           tar xvzf ghr.tar.gz; rm ghr.tar.gz
-          echo "[INFO] Release tag: v${{ env.CEMU_VERSION }}"
-          RELEASE_BODY=$(printf "Experimental release %s" "${{ env.CEMU_VERSION }}")
-          ghr_v0.15.0_linux_amd64/ghr -b "$RELEASE_BODY" -t ${{ secrets.GITHUB_TOKEN }} -n "Cemu ${{ env.CEMU_VERSION }}" "${{ env.CEMU_VERSION }}" ./upload
+          ./ghr -u ${{ github.repository_owner }} -r ${{ github.event.repository.name }} -token $GITHUB_TOKEN v$VERSION upload/
+          
