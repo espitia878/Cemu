@@ -18,10 +18,13 @@
 
 #define _CRLF	"\r\n"
 
-// --- NUEVO PUENTE PARA LA VARIABLE GLOBAL ---
-// Ya no usamos 'shaderContext->' porque la variable es global
+// --- DEFINICIÓN PARA XIAOMI 14T PRO ---
+// 1. Definimos la variable aquí para que el archivo sepa que existe
+bool g_is_vulkan_android = false; 
+
+// 2. Creamos el puente que usará el resto del código
 #define m_is_vulkan (g_is_vulkan_android)
-// --------------------------------------------
+// --------------------------------------
 
 
 
