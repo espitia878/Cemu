@@ -73,7 +73,7 @@ static const char* _getElementStrByIndex(uint32 index)
 
 void LatteDecompiler_emitClauseCode(LatteDecompilerShader* shaderContext, LatteDecompilerCFInstruction* cfInstruction, bool isSubroutine)
 {
-	// Usamos shaderContext->shaderCode porque 'src' no está definido aquí
+	// Corregido: usamos shaderCode directamente porque 'src' no es un parámetro aquí
 	if (cfInstruction->op == CF_OP_ALU)
 	{
 		shaderContext->shaderCode.add("// ALU Clause" _CRLF);
@@ -120,6 +120,7 @@ void LatteDecompiler_emitShaderCodeGLSL(LatteDecompilerShader* shaderContext, St
 	if (shader->shaderType == LatteConst::ShaderType::Geometry)
 		src->add("EndPrimitive();" _CRLF);
 
+	// Corregido: eliminado 'writesPointSize' para evitar el error en LatteThread.cpp
 	if (shaderContext->analyzer.outputPointSize)
 	{
 		src->add("gl_PointSize = renderState.pointSize;" _CRLF);
