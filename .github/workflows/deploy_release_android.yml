@@ -31,23 +31,43 @@ jobs:
         with:
           ndk-version: r26b
 
-      - name: Install Build Tools & Missing Libraries
+      - name: Install Critical Libraries
         run: |
           sudo apt update -qq
-          # AÑADIDO: libusb-1.0-0-dev para solucionar el error fatal de CMake
+          # Instalamos las dependencias que el log reportó como faltantes
           sudo apt install -y gettext mono-complete ninja-build cmake libusb-1.0-0-dev pkg-config
-          cmake --version
 
-      - name: Build Cemu (Deep Diagnostic Mode)
+      - name: Check Patch (Zombie Fix Verification)
         run: |
+          echo "--- VERIFICANDO CÓDIGO C++ ---"
+          TARGET_FILE=$(find . -name "VulkanRenderer.cpp")
+          if [ -z "$TARGET_FILE" ]; then
+            echo "ERROR: No se encontró VulkanRenderer.cpp"
+            exit 1
+          fi
+          echo "Archivo localizado en: $TARGET_FILE"
+          # Buscamos nuestra modificación para el Xiaomi 14T Pro
+          grep "BC5_UNORM" "$TARGET_FILE" || echo "ADVERTENCIA: El parche no parece estar aplicado en este archivo."
+
+      - name: Build Cemu (Full Diagnostic)
+        run: |
+          # Encontrar carpeta de construcción dinámicamente
           ANDROID_PATH=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           cd "$ANDROID_PATH"
           chmod +x gradlew
           
+          # Limpieza de rastro de compilaciones anteriores
           ./gradlew clean
           rm -rf .externalNativeBuild .cxx app/.cxx app/build
           
+          # Compilar con visibilidad total de errores de C++
           ./gradlew assembleRelease --stacktrace --info -Pandroid.display_cxx_logs=true
+
+      - name: Post-Build Map
+        if: always()
+        run: |
+          echo "--- MAPA DE ARCHIVOS RESULTANTES ---"
+          find . -name "*.apk" || echo "No se encontró ningún APK generado."
 
       - name: Upload Artifact
         if: success()
