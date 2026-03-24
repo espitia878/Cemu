@@ -187,7 +187,7 @@ void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContex
 		}
 		else
 		{
-			cemu_assert_debug("U32 Swap error bypass");
+			src->add("// U32 Swap format not supported" _CRLF);
 		}
 	}
 	else if( attrib->endianSwap == LatteConst::VertexFetchEndianMode::SWAP_NONE )
@@ -213,7 +213,7 @@ void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContex
 			_readLittleEndianAttributeU32x1(shaderContext, src, attributeInputIndex);
 			src->add("attrDecoder.xyzw = uvec4((attrDecoder.x>>0)&0x3FF,(attrDecoder.x>>10)&0x3FF,(attrDecoder.x>>20)&0x3FF,(attrDecoder.x>>30)&0x3);" _CRLF);
 			src->add("attrDecoder.x = floatBitsToUint(max(float(int(attrDecoder.x))/1023.0,-1.0));" _CRLF);
-			src->add("attrDecoder.y = floatBitsToUint(max(float(int(attribDecoder.y))/1023.0,-1.0));" _CRLF);
+			src->add("attrDecoder.y = floatBitsToUint(max(float(int(attrDecoder.y))/1023.0,-1.0));" _CRLF);
 			src->add("attrDecoder.z = floatBitsToUint(max(float(int(attrDecoder.z))/1023.0,-1.0));" _CRLF);
 			src->add("attrDecoder.w = floatBitsToUint(float(attrDecoder.w));" _CRLF);
 		}
@@ -306,11 +306,11 @@ void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContex
 		}
 		else
 		{
-			cemu_assert_debug("None Swap error bypass");
+			src->add("// Endian None format not supported" _CRLF);
 		}
 	}
 	else if( attrib->endianSwap == LatteConst::VertexFetchEndianMode::SWAP_U16 )
 	{
-		cemu_assert_debug("U16 Swap bypass");
+		src->add("// U16 Swap not implemented" _CRLF);
 	}
 }
