@@ -6,6 +6,7 @@
 #include "Cafe/HW/Latte/Core/LatteConst.h"
 
 // --- VARIABLE GLOBAL PARA XIAOMI 14T PRO ---
+// Al estar fuera de la 'struct', Cemu no se rompe al compilar
 static inline bool g_is_vulkan_android = false;
 // -------------------------------------------
 
