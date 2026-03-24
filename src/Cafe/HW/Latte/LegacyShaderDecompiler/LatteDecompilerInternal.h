@@ -5,10 +5,10 @@
 #include <bitset>
 #include "Cafe/HW/Latte/Core/LatteConst.h"
 
-// --- VARIABLE GLOBAL PARA XIAOMI 14T PRO ---
-// Al estar fuera de la 'struct', Cemu no se rompe al compilar
-static inline bool g_is_vulkan_android = false;
-// -------------------------------------------
+// --- VARIABLE PARA XIAOMI 14T PRO ---
+// 'extern' le dice al compilador: "esta variable existe en otro lado, no te preocupes"
+extern bool g_is_vulkan_android;
+// ------------------------------------
 
 struct LatteDecompilerShaderContext
 {
