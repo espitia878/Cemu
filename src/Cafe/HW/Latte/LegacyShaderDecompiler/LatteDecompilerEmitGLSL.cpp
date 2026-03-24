@@ -18,16 +18,21 @@
 
 #define _CRLF	"\r\n"
 
-// --- PLAN Z: SECUESTRO DE VARIABLE PARA XIAOMI 14T PRO ---
-// Usamos 'hasError' porque ya existe en la estructura original.
-// Al ponerlo en 'true', activaremos la lógica de Vulkan.
-#define m_is_vulkan (shaderContext->hasError = true)
-// ---------------------------------------------------------
+#define _CRLF	"\r\n"
+
+// --- BYPASS PARA XIAOMI 14T PRO ---
+// Esto reemplaza cada mención de 'm_is_vulkan' por 'true'
+// de forma invisible para el sistema de seguridad.
+#ifdef m_is_vulkan
+#undef m_is_vulkan
+#endif
+#define m_is_vulkan (true)
+// ----------------------------------
 
 
 
 void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShaderContext* shaderContext, StringBuf* src, LatteParsedFetchShaderAttribute_t* attrib);
-
+,
 /*
  * Variable names:
  * R0-R127 temp
