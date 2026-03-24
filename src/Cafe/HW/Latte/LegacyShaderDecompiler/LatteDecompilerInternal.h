@@ -5,14 +5,12 @@
 #include <bitset>
 #include "Cafe/HW/Latte/Core/LatteConst.h"
 
+// --- VARIABLE GLOBAL PARA XIAOMI 14T PRO ---
+static inline bool g_is_vulkan_android = false;
+// -------------------------------------------
+
 struct LatteDecompilerShaderContext
 {
-	// --- MODIFICACIÓN PARA XIAOMI 14T PRO ---
-	// Usamos 'static' para que no afecte al tamaño de la estructura
-	// y así ShaderSerializer.cpp no note ningún cambio.
-	static inline bool m_is_vulkan_android = false; 
-	// ---------------------------------------
-
 	struct LatteDecompilerOutput_t* output;
 	struct LatteDecompilerShader* shader;
 	LatteConst::ShaderType shaderType;
