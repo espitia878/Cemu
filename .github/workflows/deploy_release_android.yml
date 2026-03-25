@@ -61,19 +61,26 @@ jobs:
             grep "BC5_UNORM" "$VULKAN_FILE" || echo "AVISO: El parche de texturas no se detectó."
           fi
 
-      - name: 🏗️ Compilar APK (Full Diagnostic)
+            - name: 🏗️ Compilar APK (Optimizado para Xiaomi 14T Pro)
         run: |
-          # Localizamos gradlew automáticamente para evitar errores de ruta
+          # 1. Localización de herramientas
           GRADLE_PATH=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           cd "$GRADLE_PATH"
           chmod +x gradlew
           
+          # 2. Limpieza de caché corrupto
           ./gradlew clean
           rm -rf .externalNativeBuild .cxx app/.cxx app/build
           
-          # Compilación con reporte detallado
-          ./gradlew assembleRelease --stacktrace --info -Pandroid.display_cxx_logs=true
-
+          # 3. COMPILACIÓN CON INYECCIÓN DE PROPIEDADES (Aquí está la magia)
+          # Forzamos la versión 3.22.1 de CMake que es la más estable para NDK r26b
+          ./gradlew assembleRelease \
+            -Pandroid.library.variants.all.itemConfiguration.cmake.version="3.22.1" \
+            -Pandroid.extractNativeLibs=true \
+            -Pandroid.ndkVersion="26.1.10909125" \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" \
+            --stacktrace
+            
       - name: 📦 Cargar Artefacto
         if: success()
         run: |
