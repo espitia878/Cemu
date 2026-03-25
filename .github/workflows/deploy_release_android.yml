@@ -41,23 +41,19 @@ jobs:
       - name: 🛠️ Limpieza y Bypass (Astucia Técnica)
         run: |
           echo "Desactivando módulos de PC y limpiando rutas..."
-          # Comentamos libusb para evitar que CMake lo busque (causa común de error 1)
           find . -name "CMakeLists.txt" -exec sed -i 's/pkg_check_modules(LIBUSB/# pkg_check_modules(LIBUSB/g' {} +
           find . -name "CMakeLists.txt" -exec sed -i 's/find_package(libusb/# find_package(libusb/g' {} +
           
-          # Aseguramos que el CMakeLists raíz tenga la versión correcta sin duplicar líneas
           MAIN_CMAKE=$(find . -maxdepth 2 -name "CMakeLists.txt" | head -n 1)
           sed -i '/cmake_minimum_required/d' "$MAIN_CMAKE"
           sed -i '1i cmake_minimum_required(VERSION 3.22)' "$MAIN_CMAKE"
 
-            - name: 🏗️ Compilar APK (Estrategia de Intercepción)
+      - name: 🏗️ Compilar APK (Estrategia de Intercepción)
         run: |
           # 1. Instalamos físicamente la versión que necesitamos
           $ANDROID_HOME/tools/bin/sdkmanager "cmake;3.22.1"
           
           # 2. EL HIJACK: Engañamos al sistema de GitHub
-          # Borramos la carpeta de la versión 3.31.5 que da error 
-          # y creamos un acceso directo que apunte a la 3.22.1
           sudo rm -rf /usr/local/lib/android/sdk/cmake/3.31.5
           sudo ln -s $ANDROID_HOME/cmake/3.22.1 /usr/local/lib/android/sdk/cmake/3.31.5
           
@@ -71,17 +67,15 @@ jobs:
             -Pandroid.extractNativeLibs=true \
             -Dorg.gradle.jvmargs="-Xmx4g" \
             --stacktrace
-            
 
       - name: 📦 Cargar Artefacto
         if: success()
         run: |
           VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
           mkdir -p upload
-          # Filtramos para obtener solo el APK final y no archivos temporales
           find . -name "*.apk" -not -path "*/build-cache/*" -not -path "*/intermediates/*" -exec cp {} upload/Cemu-Xiaomi-14TPro-v$VERSION.apk \;
           
-          # Publicación en la pestaña de Releases
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz
           tar xvzf ghr.tar.gz; rm ghr.tar.gz
           ./ghr -u ${{ github.repository_owner }} -r ${{ github.event.repository.name }} -token ${{ secrets.GITHUB_TOKEN }} v$VERSION upload/
+          
