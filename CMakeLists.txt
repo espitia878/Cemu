@@ -1,16 +1,23 @@
+# COMPONENTE VITAL: Esta debe ser SIEMPRE la primera línea
+cmake_minimum_required(VERSION 3.22)
+
 project(cemuMain)
+
+# OPTIMIZACIÓN: Desactivar libusb para Android para evitar el error de "package not found"
+if(ANDROID)
+    set(ENABLE_NSYSHID_LIBUSB OFF CACHE BOOL "" FORCE)
+    add_definitions(-DANDROID)
+endif()
 
 option(CEMU_CXX_FLAGS "Additional flags used for compiling Cemu source code")
 if(CEMU_CXX_FLAGS)
-	add_compile_options(${CEMU_CXX_FLAGS})
+    add_compile_options(${CEMU_CXX_FLAGS})
 endif()
-
-# ... (mantener validaciones de punteros y definiciones de plataforma)
 
 add_compile_definitions(VK_NO_PROTOTYPES)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-# CORRECCIÓN 1: Añadir prefijo 'src/' a todos los subdirectorios
+# CORRECCIÓN 1: Estructura de subdirectorios con prefijo src/
 add_subdirectory(src/Common)
 add_subdirectory(src/gui)
 add_subdirectory(src/Cafe)
@@ -22,41 +29,18 @@ add_subdirectory(src/util)
 add_subdirectory(src/imgui)
 add_subdirectory(src/resource)
 
-# CORRECCIÓN 2: Añadir el subdirectorio de componentes que falta
-# add_subdirectory(src/components) # Descomenta esto si la carpeta existe
-
 if(ANDROID)
-    # CORRECCIÓN 3: Ruta completa a los archivos fuente para Android
+    # CORRECCIÓN 3: Librería estática para el núcleo del emulador
     add_library(CemuBin STATIC
         src/main.cpp
         src/mainLLE.cpp
     )
+    # Enlace con el código nativo de la app Android
     add_subdirectory(src/android/app/src/main/cpp)
 else()
-	# CORRECCIÓN 4: Ruta completa a los archivos fuente para PC
-	add_executable(CemuBin
-		src/main.cpp
-		src/mainLLE.cpp
-	)
-    # ... (resto de configuración de MSVC/WIN32)
+    # Configuración para compilación en PC
+    add_executable(CemuBin
+        src/main.cpp
+        src/mainLLE.cpp
+    )
 endif()
-
-# ... (mantener configuración de MACOS_BUNDLE si aplica)
-
-set_target_properties(CemuBin PROPERTIES
-	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/$<1:>"
-	OUTPUT_NAME "${OUTPUT_NAME}"
-)
-
-target_link_libraries(CemuBin PRIVATE
-	CemuAudio
-	CemuCafe
-	CemuCommon
-	CemuGui
-	CemuComponents
-	CemuConfig
-	CemuInput
-	CemuUtil
-)
-
-# ... (resto del archivo)
