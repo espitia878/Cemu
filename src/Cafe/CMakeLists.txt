@@ -612,20 +612,23 @@ if(ANDROID)
   endif()
 endif()
 
-# --- BLOQUE DE ARQUITECTURA ANDROID (AArch64) ---
+# --- SOLUCIÓN ROBUSTA PARA ANDROID AArch64 ---
 if(CEMU_ARCHITECTURE MATCHES "(aarch64)|(AARCH64)|(arm64)|(ARM64)")
-  # Definimos la ruta absoluta para que el compilador no se pierda
-  set(AARCH64_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/HW/Espresso/Recompiler/BackendAArch64")
+    # En lugar de confiar en rutas relativas, buscamos el archivo desde la raíz del proyecto
+    get_filename_component(CEMU_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+    set(AARCH64_DIR "${CEMU_ROOT_DIR}/src/Cafe/HW/Espresso/Recompiler/BackendAArch64")
 
-  target_sources(CemuCafe PRIVATE
-    "${AARCH64_CORE_DIR}/BackendAArch64.cpp"
-    "${AARCH64_CORE_DIR}/BackendAArch64.h"
-  )
-  
-  target_link_libraries(CemuCafe PRIVATE xbyak_aarch64)
-  
-  # Mensaje de depuración: Si esto falla, el log nos dirá la ruta exacta que intentó usar
-  message(STATUS "Configurando motor AArch64 desde: ${AARCH64_CORE_DIR}")
+    message(STATUS "DEBUG: Buscando motor AArch64 en: ${AARCH64_DIR}")
+
+    target_sources(CemuCafe PRIVATE
+        "${AARCH64_DIR}/BackendAArch64.cpp"
+        "${AARCH64_DIR}/BackendAArch64.h"
+    )
+    
+    target_link_libraries(CemuCafe PRIVATE xbyak_aarch64)
+    
+    # Marcamos los archivos como manuales para que Gradle no intente 'adivinar' su ruta
+    set_source_files_properties("${AARCH64_DIR}/BackendAArch64.cpp" PROPERTIES EXTERNAL_OBJECT FALSE GENERATED FALSE)
 endif()
 
 
