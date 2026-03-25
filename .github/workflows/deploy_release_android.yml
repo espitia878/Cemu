@@ -48,38 +48,31 @@ jobs:
           sed -i '/cmake_minimum_required/d' "$MAIN_CMAKE"
           sed -i '1i cmake_minimum_required(VERSION 3.22)' "$MAIN_CMAKE"
 
-            - name: 🏗️ Compilar APK (Suplantación de Identidad de Herramientas)
+      - name: 🏗️ Compilar APK (Suplantación de Identidad de Herramientas)
         run: |
           # 1. Asegurar la existencia de la versión compatible
           $ANDROID_HOME/tools/bin/sdkmanager "cmake;3.22.1"
           
           # 2. EL HIJACK (El golpe maestro)
-          # Eliminamos cualquier rastro de la versión problemática
           sudo rm -rf /usr/local/lib/android/sdk/cmake/3.31.5
-          
-          # Creamos la carpeta de la 3.31.5 pero VACÍA
           sudo mkdir -p /usr/local/lib/android/sdk/cmake/3.31.5/bin
           
-          # Enlazamos el ejecutable de la 3.22.1 DENTRO de la carpeta de la 3.31.5
-          # Así, cuando Gradle crea que llama a la nueva, estará ejecutando la vieja.
+          # Enlazamos la 3.22.1 dentro de la ruta de la 3.31.5
           sudo ln -sf $ANDROID_HOME/cmake/3.22.1/bin/cmake /usr/local/lib/android/sdk/cmake/3.31.5/bin/cmake
           sudo ln -sf $ANDROID_HOME/cmake/3.22.1/bin/ninja /usr/local/lib/android/sdk/cmake/3.31.5/bin/ninja
           
           # 3. Configuración de Prioridad Absoluta
-          # Escribimos local.properties usando rutas absolutas para no fallar
           echo "cmake.dir=$ANDROID_HOME/cmake/3.22.1" > ./src/android/local.properties
           echo "ndk.dir=$ANDROID_HOME/ndk/r26b" >> ./src/android/local.properties
           
-          # 4. COMPILACIÓN DE ALTO RENDIMIENTO (Sin demonios)
+          # 4. COMPILACIÓN DE ALTO RENDIMIENTO
           cd ./src/android
           chmod +x gradlew
-          # Usamos --no-daemon para que no guarde basura en memoria entre intentos
           ./gradlew assembleRelease \
             --no-daemon \
             -Pandroid.extractNativeLibs=true \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" \
+            -Dorg.gradle.jvmargs="-Xmx4g" \
             --stacktrace
-            
 
       - name: 📦 Cargar Artefacto
         if: success()
