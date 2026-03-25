@@ -75,8 +75,15 @@ if(ANDROID)
         src/main.cpp
         src/mainLLE.cpp
     )
-    # Librerías esenciales del sistema Android para que no crashee al abrir
-    target_link_libraries(CemuBin PRIVATE log android nativewindow)
+        # Librerías esenciales + El corazón de la emulación (CemuCafe)
+    target_link_libraries(CemuBin PRIVATE 
+        CemuCafe 
+        CemuCommon 
+        log 
+        android 
+        nativewindow
+    )
+    
     
     # Capa JNI (La que conecta el C++ con la App de Android)
     add_subdirectory(src/android/app/src/main/cpp)
