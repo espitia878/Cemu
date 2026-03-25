@@ -12,6 +12,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -36,59 +38,42 @@ jobs:
           sudo apt update -qq
           sudo apt install -y libusb-1.0-0-dev pkg-config ninja-build cmake gettext
 
-      - name: 🛠️ Parche de Emergencia (Versión Reforzada)
+      - name: 🛠️ Limpieza de Conflictos (Bypass LibUSB)
         run: |
-          echo "Aplicando correcciones quirúrgicas..."
-          
-          # 1. Corregir CMakeLists.txt principal (usando find para mayor seguridad)
-          MAIN_CMAKE=$(find . -maxdepth 2 -name "CMakeLists.txt" | head -n 1)
-          if [ -f "$MAIN_CMAKE" ]; then
-            sed -i '1i cmake_minimum_required(VERSION 3.22)' "$MAIN_CMAKE"
-            echo "Versión mínima de CMake inyectada en $MAIN_CMAKE"
-          fi
-          
-          # 2. Bypass total de libusb
-          # Buscamos todos los archivos que mencionen libusb para comentarlos
+          echo "Desactivando módulos de PC innecesarios..."
+          # Buscamos y comentamos referencias a libusb que bloquean Android
           find . -name "CMakeLists.txt" -exec sed -i 's/pkg_check_modules(LIBUSB/# pkg_check_modules(LIBUSB/g' {} +
-          find . -name "CMakeLists.txt" -exec sed -i 's/libusb-1.0/# libusb-1.0/g' {} +
-          echo "Bypass de libusb aplicado en todos los módulos."
+          find . -name "CMakeLists.txt" -exec sed -i 's/find_package(libusb/# find_package(libusb/g' {} +
 
-      - name: 🔍 Verificar Parche de Texturas
+      - name: 🏗️ Compilar APK (Optimizado para Xiaomi 14T Pro)
         run: |
-          echo "Verificando parche BC5_UNORM..."
-          VULKAN_FILE=$(find . -name "VulkanRenderer.cpp")
-          if [ -n "$VULKAN_FILE" ]; then
-            grep "BC5_UNORM" "$VULKAN_FILE" || echo "AVISO: El parche de texturas no se detectó."
-          fi
-
-            - name: 🏗️ Compilar APK (Optimizado para Xiaomi 14T Pro)
-        run: |
-          # 1. Localización de herramientas
+          # 1. Localización de gradlew
           GRADLE_PATH=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           cd "$GRADLE_PATH"
           chmod +x gradlew
           
-          # 2. Limpieza de caché corrupto
+          # 2. Limpieza radical de builds fallidos
           ./gradlew clean
           rm -rf .externalNativeBuild .cxx app/.cxx app/build
           
-          # 3. COMPILACIÓN CON INYECCIÓN DE PROPIEDADES (Aquí está la magia)
-          # Forzamos la versión 3.22.1 de CMake que es la más estable para NDK r26b
+          # 3. COMPILACIÓN DE ALTO RENDIMIENTO
+          # Forzamos CMake 3.22.1 y NDK específico para evitar el exit value 1
           ./gradlew assembleRelease \
             -Pandroid.library.variants.all.itemConfiguration.cmake.version="3.22.1" \
             -Pandroid.extractNativeLibs=true \
             -Pandroid.ndkVersion="26.1.10909125" \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError" \
-            --stacktrace
-            
+            -Dorg.gradle.jvmargs="-Xmx4g -Xms2g" \
+            --stacktrace --info
+
       - name: 📦 Cargar Artefacto
         if: success()
         run: |
           VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
           mkdir -p upload
-          # Buscamos el APK recursivamente para evitar fallos de ruta en el comando cp
-          find . -name "*.apk" -exec cp {} upload/Cemu-Optimized-$VERSION.apk \;
+          # Buscamos el APK y lo renombramos con tu optimización
+          find . -name "*.apk" -not -path "*/build-cache/*" -exec cp {} upload/Cemu-Xiaomi-14TPro-v$VERSION.apk \;
           
+          # Herramienta de release
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz
           tar xvzf ghr.tar.gz; rm ghr.tar.gz
           ./ghr -u ${{ github.repository_owner }} -r ${{ github.event.repository.name }} -token ${{ secrets.GITHUB_TOKEN }} v$VERSION upload/
