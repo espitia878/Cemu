@@ -614,11 +614,15 @@ endif()
 
 if(CEMU_ARCHITECTURE MATCHES "(aarch64)|(AARCH64)|(arm64)|(ARM64)")
   target_sources(CemuCafe PRIVATE
-    "${CMAKE_CURRENT_LIST_DIR}/HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.h"
   )
   target_link_libraries(CemuCafe PRIVATE xbyak_aarch64)
+  
+  # Forzamos que CMake entienda que estas rutas son absolutas y reales
+  set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.cpp" PROPERTIES GENERATED FALSE)
 endif()
+
 
 
 
