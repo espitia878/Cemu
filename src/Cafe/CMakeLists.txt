@@ -661,7 +661,7 @@ else ()
   # target_link_libraries(CemuCafe PRIVATE libusb::libusb)
 endif ()
 
-
-if(WIN32)
-	target_link_libraries(CemuCafe PRIVATE iphlpapi)
-endif()
+if (ENABLE_JOYCOND)
+  # find_package(joycond-cemuhook REQUIRED)
+  # target_link_libraries(CemuCafe PRIVATE joycond-cemuhook::joycond-cemuhook)
+endif ()
