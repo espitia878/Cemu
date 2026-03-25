@@ -38,30 +38,34 @@ jobs:
           sudo apt update -qq
           sudo apt install -y libusb-1.0-0-dev pkg-config ninja-build cmake gettext
 
-      - name: 🛠️ Limpieza de Conflictos (Bypass LibUSB)
+      - name: 🛠️ Limpieza y Bypass (Astucia Técnica)
         run: |
-          echo "Desactivando módulos de PC innecesarios..."
-          # Buscamos y comentamos referencias a libusb que bloquean Android
+          echo "Desactivando módulos de PC y limpiando rutas..."
+          # Comentamos libusb para evitar que CMake lo busque (causa común de error 1)
           find . -name "CMakeLists.txt" -exec sed -i 's/pkg_check_modules(LIBUSB/# pkg_check_modules(LIBUSB/g' {} +
           find . -name "CMakeLists.txt" -exec sed -i 's/find_package(libusb/# find_package(libusb/g' {} +
+          
+          # Aseguramos que el CMakeLists raíz tenga la versión correcta sin duplicar líneas
+          MAIN_CMAKE=$(find . -maxdepth 2 -name "CMakeLists.txt" | head -n 1)
+          sed -i '/cmake_minimum_required/d' "$MAIN_CMAKE"
+          sed -i '1i cmake_minimum_required(VERSION 3.22)' "$MAIN_CMAKE"
 
       - name: 🏗️ Compilar APK (Optimizado para Xiaomi 14T Pro)
         run: |
-          # 1. Localización de gradlew
+          # 1. Localización y permisos de Gradle
           GRADLE_PATH=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
           cd "$GRADLE_PATH"
           chmod +x gradlew
           
-          # 2. Limpieza radical de builds fallidos
+          # 2. Limpieza de residuos de intentos anteriores
           ./gradlew clean
           rm -rf .externalNativeBuild .cxx app/.cxx app/build
           
           # 3. COMPILACIÓN DE ALTO RENDIMIENTO
-          # Forzamos CMake 3.22.1 y NDK específico para evitar el exit value 1
+          # Forzamos CMake 3.22.1 para evitar el error de la versión 3.31.5 del sistema
           ./gradlew assembleRelease \
             -Pandroid.library.variants.all.itemConfiguration.cmake.version="3.22.1" \
             -Pandroid.extractNativeLibs=true \
-            -Pandroid.ndkVersion="26.1.10909125" \
             -Dorg.gradle.jvmargs="-Xmx4g -Xms2g" \
             --stacktrace --info
 
@@ -70,11 +74,10 @@ jobs:
         run: |
           VERSION="${{ inputs.version_major }}.${{ inputs.version_minor }}"
           mkdir -p upload
-          # Buscamos el APK y lo renombramos con tu optimización
-          find . -name "*.apk" -not -path "*/build-cache/*" -exec cp {} upload/Cemu-Xiaomi-14TPro-v$VERSION.apk \;
+          # Filtramos para obtener solo el APK final y no archivos temporales
+          find . -name "*.apk" -not -path "*/build-cache/*" -not -path "*/intermediates/*" -exec cp {} upload/Cemu-Xiaomi-14TPro-v$VERSION.apk \;
           
-          # Herramienta de release
+          # Publicación en la pestaña de Releases
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz
           tar xvzf ghr.tar.gz; rm ghr.tar.gz
           ./ghr -u ${{ github.repository_owner }} -r ${{ github.event.repository.name }} -token ${{ secrets.GITHUB_TOKEN }} v$VERSION upload/
-          
