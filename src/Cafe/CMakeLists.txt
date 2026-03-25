@@ -614,11 +614,12 @@ endif()
 
 if(CEMU_ARCHITECTURE MATCHES "(aarch64)|(AARCH64)|(arm64)|(ARM64)")
   target_sources(CemuCafe PRIVATE
-    HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.cpp
-    HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/HW/Espresso/Recompiler/BackendAArch64/BackendAArch64.h
   )
   target_link_libraries(CemuCafe PRIVATE xbyak_aarch64)
 endif()
+
 
 set_property(TARGET CemuCafe PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
