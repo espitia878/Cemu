@@ -2,61 +2,62 @@ cmake_minimum_required(VERSION 3.22)
 project(cemuMain)
 
 # ==============================================================================
-# 1. PARCHE DE INTEGRACIÓN Y DETECCIÓN DE ENTORNO
+# 1. PARCHE DE INTEGRACIÓN "TOTAL RECALL" (VCPKG + ANDROID)
 # ==============================================================================
 if(ANDROID)
-    message(STATUS "[EXPERTO] Optimizando Cemu para entorno Android...")
-    
-    # Ruta absoluta de dependencias VCPKG
+    message(STATUS "[ASTUTO] Iniciando protocolo de detección de librerías para ARM64...")
+
+    # Forzamos a CMake a buscar paquetes tanto en el NDK como en nuestras carpetas externas
+    # Sin esto, Android ignora por completo a VCPKG
+    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
+    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
+    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
+
+    # Ruta de VCPKG - Usamos la ruta relativa al proyecto para mayor seguridad
     set(VCPKG_ANDROID_DIR "${CMAKE_SOURCE_DIR}/dependencies/vcpkg/installed/arm64-android")
-    
+
     if(EXISTS "${VCPKG_ANDROID_DIR}")
         list(APPEND CMAKE_PREFIX_PATH "${VCPKG_ANDROID_DIR}")
-        # Forzamos la detección de librerías críticas
-        foreach(lib boost zarchive fmt nlohmann_json pugixml)
-            set(${lib}_DIR "${VCPKG_ANDROID_DIR}/share/${lib}")
-        endforeach()
+        list(APPEND CMAKE_LIBRARY_PATH "${VCPKG_ANDROID_DIR}/lib")
+        list(APPEND CMAKE_INCLUDE_PATH "${VCPKG_ANDROID_DIR}/include")
+        
+        # Inyectamos las rutas de share para que find_package no tenga excusas
+        set(Boost_DIR "${VCPKG_ANDROID_DIR}/share/boost")
+        set(ZArchive_DIR "${VCPKG_ANDROID_DIR}/share/zarchive")
+        set(fmt_DIR "${VCPKG_ANDROID_DIR}/share/fmt")
+        set(nlohmann_json_DIR "${VCPKG_ANDROID_DIR}/share/nlohmann_json")
+        message(STATUS "[ASTUTO] Puente VCPKG establecido en: ${VCPKG_ANDROID_DIR}")
     endif()
 
-    # Desactivar componentes de PC que causan errores en móviles
+    add_definitions(-DANDROID -DNOMINMAX)
     set(ENABLE_NSYSHID_LIBUSB OFF CACHE BOOL "" FORCE)
     set(ENABLE_WAYLAND OFF CACHE BOOL "" FORCE)
-    add_definitions(-DANDROID -DNOMINMAX)
 endif()
 
 # ==============================================================================
-# 2. OPTIMIZACIONES DE RENDIMIENTO (Xiaomi 14T Pro / Dimensity 9300+)
+# 2. OPTIMIZACIÓN EXTREMA (Xiaomi 14T Pro - Dimensity 9300+)
 # ==============================================================================
+# Tu procesador tiene núcleos Cortex-X4 y A720 (ARMv9). Vamos a sacarle fuego.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    # -O3: Optimización máxima de velocidad
-    # -flto: Optimización en tiempo de enlazado (más FPS)
-    # -fomit-frame-pointer: Libera un registro para cálculos extra
-    add_compile_options(-O3 -flto -fomit-frame-pointer -ffunction-sections -fdata-sections)
+    add_compile_options(-O3 -flto -fomit-frame-pointer -ffast-math)
     
     if(ANDROID)
-        # Banderas específicas para procesadores ARM de 64 bits modernos
-        add_compile_options(-march=armv8.2-a+fp16+dotprod -mcpu=cortex-a78) 
-        # Nota: Aunque tu chip es más nuevo, esta base asegura estabilidad máxima y gran velocidad.
-        
-        # Optimización de punto flotante para emulación
-        add_compile_options(-ffast-math)
+        # ARMv9-A es la arquitectura de tu chip. Esto activa instrucciones de IA y matemáticas rápidas.
+        add_compile_options(-march=armv9-a+crypto+fp16+dotprod -mtune=generic)
+        # Garbage collection de código: si no se usa, no ocupa espacio ni RAM
+        add_compile_options(-ffunction-sections -fdata-sections)
     endif()
 endif()
 
 # ==============================================================================
-# 3. CONFIGURACIÓN DE LIBRERÍAS Y SÍMBOLOS
+# 3. NÚCLEO DEL PROYECTO
 # ==============================================================================
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 add_compile_definitions(VK_NO_PROTOTYPES)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-# ==============================================================================
-# 4. ESTRUCTURA DEL PROYECTO
-# ==============================================================================
+# Subdirectorios en orden lógico de dependencia
 add_subdirectory(src/Common)
 add_subdirectory(src/gui)
 add_subdirectory(src/Cafe)
@@ -69,26 +70,22 @@ add_subdirectory(src/imgui)
 add_subdirectory(src/resource)
 
 if(ANDROID)
-    # Creamos el núcleo estático para ser consumido por la interfaz JNI de Android
+    # Librería estática que une todo el motor de Cemu
     add_library(CemuBin STATIC
         src/main.cpp
         src/mainLLE.cpp
     )
-    
-    # Enlazamos las librerías base de Android necesarias para gráficos y logs
+    # Librerías esenciales del sistema Android para que no crashee al abrir
     target_link_libraries(CemuBin PRIVATE log android nativewindow)
     
-    # Capa de comunicación Android-C++ (JNI)
+    # Capa JNI (La que conecta el C++ con la App de Android)
     add_subdirectory(src/android/app/src/main/cpp)
 else()
     add_executable(Cemu src/main.cpp src/mainLLE.cpp)
     target_link_libraries(Cemu PRIVATE CemuCafe)
 endif()
 
-# ==============================================================================
-# 5. LIMPIEZA FINAL (Evita errores de símbolos duplicados)
-# ==============================================================================
+# Limpieza de enlazado para que el APK sea más ligero
 if(ANDROID)
-    # El linker de Android es estricto; eliminamos secciones muertas para ahorrar RAM
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--gc-sections")
 endif()
