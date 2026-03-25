@@ -612,22 +612,21 @@ if(ANDROID)
   endif()
 endif()
 
-# Definimos la ruta de forma segura y absoluta respecto al proyecto
-set(AARCH64_DIR "${CMAKE_CURRENT_SOURCE_DIR}/HW/Espresso/Recompiler/BackendAArch64")
-
+# --- BLOQUE DE ARQUITECTURA ANDROID (AArch64) ---
 if(CEMU_ARCHITECTURE MATCHES "(aarch64)|(AARCH64)|(arm64)|(ARM64)")
-  # Verificamos si el archivo existe antes de intentar compilarlo (Astucia pura)
-  if(EXISTS "${AARCH64_DIR}/BackendAArch64.cpp")
-    target_sources(CemuCafe PRIVATE
-      "${AARCH64_DIR}/BackendAArch64.cpp"
-      "${AARCH64_DIR}/BackendAArch64.h"
-    )
-    target_link_libraries(CemuCafe PRIVATE xbyak_aarch64)
-  else()
-    message(FATAL_ERROR "¡Error Crítico! No se encontró el motor AArch64 en: ${AARCH64_DIR}")
-  endif()
-endif()
+  # Definimos la ruta absoluta para que el compilador no se pierda
+  set(AARCH64_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/HW/Espresso/Recompiler/BackendAArch64")
 
+  target_sources(CemuCafe PRIVATE
+    "${AARCH64_CORE_DIR}/BackendAArch64.cpp"
+    "${AARCH64_CORE_DIR}/BackendAArch64.h"
+  )
+  
+  target_link_libraries(CemuCafe PRIVATE xbyak_aarch64)
+  
+  # Mensaje de depuración: Si esto falla, el log nos dirá la ruta exacta que intentó usar
+  message(STATUS "Configurando motor AArch64 desde: ${AARCH64_CORE_DIR}")
+endif()
 
 
 
