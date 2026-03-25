@@ -50,24 +50,28 @@ jobs:
           sed -i '/cmake_minimum_required/d' "$MAIN_CMAKE"
           sed -i '1i cmake_minimum_required(VERSION 3.22)' "$MAIN_CMAKE"
 
-      - name: 🏗️ Compilar APK (Optimizado para Xiaomi 14T Pro)
+            - name: 🏗️ Compilar APK (Estrategia de Intercepción)
         run: |
-          # 1. Localización y permisos de Gradle
-          GRADLE_PATH=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
-          cd "$GRADLE_PATH"
+          # 1. Instalamos físicamente la versión que necesitamos
+          $ANDROID_HOME/tools/bin/sdkmanager "cmake;3.22.1"
+          
+          # 2. EL HIJACK: Engañamos al sistema de GitHub
+          # Borramos la carpeta de la versión 3.31.5 que da error 
+          # y creamos un acceso directo que apunte a la 3.22.1
+          sudo rm -rf /usr/local/lib/android/sdk/cmake/3.31.5
+          sudo ln -s $ANDROID_HOME/cmake/3.22.1 /usr/local/lib/android/sdk/cmake/3.31.5
+          
+          # 3. Forzamos la ruta en la configuración interna de Android
+          echo "cmake.dir=$ANDROID_HOME/cmake/3.22.1" > ./src/android/local.properties
+          
+          # 4. COMPILACIÓN FINAL
+          cd ./src/android
           chmod +x gradlew
-          
-          # 2. Limpieza de residuos de intentos anteriores
-          ./gradlew clean
-          rm -rf .externalNativeBuild .cxx app/.cxx app/build
-          
-          # 3. COMPILACIÓN DE ALTO RENDIMIENTO
-          # Forzamos CMake 3.22.1 para evitar el error de la versión 3.31.5 del sistema
           ./gradlew assembleRelease \
-            -Pandroid.library.variants.all.itemConfiguration.cmake.version="3.22.1" \
             -Pandroid.extractNativeLibs=true \
-            -Dorg.gradle.jvmargs="-Xmx4g -Xms2g" \
-            --stacktrace --info
+            -Dorg.gradle.jvmargs="-Xmx4g" \
+            --stacktrace
+            
 
       - name: 📦 Cargar Artefacto
         if: success()
